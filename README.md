@@ -5,11 +5,14 @@
 
 インストール不要。HTML ファイル一つで動く。
 
+**▶ [ブラウザで今すぐ開く](https://hallucination-freqwave-af.github.io/para-grooveat/para_grooveat.html)**
+
 ## はじめかた
 
-1. `para_grooveat.html` をダウンロード
-2. Chrome で開く（Safari でも動くが、確認は Chrome で）
-3. 映像を二本以上、画面に放り込む
+1. 上のリンクを Chrome で開く（手元に置きたいなら `para_grooveat.html` をダウンロードして開いてもいい）
+2. 映像を二本以上、画面に放り込む
+
+素材はブラウザの中で読むだけで、どこにも送られない。
 
 ## 素材の準備
 
