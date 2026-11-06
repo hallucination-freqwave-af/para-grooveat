@@ -1,0 +1,3573 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>para grooveat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#17140F; --panel:#1D1914; --stage:#0C0A08;
+  --ink:#E8E1D4; --dim:#8E8578; --faint:#5A5348;
+  --line:rgba(232,225,212,0.15); --line-strong:rgba(232,225,212,0.32);
+  --red:#D8261A; --wave:rgba(232,225,212,0.55);
+}
+:root:not([data-theme="light"]){ color-scheme:dark; }
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --ground:#EDEAE3; --panel:#E4E0D7; --ink:#241F19; --dim:#6B6358; --faint:#9A9184;
+    --line:rgba(36,31,25,0.16); --line-strong:rgba(36,31,25,0.34);
+    --wave:rgba(36,31,25,0.6); color-scheme:light;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#17140F; --panel:#1D1914; --ink:#E8E1D4; --dim:#8E8578; --faint:#5A5348;
+  --line:rgba(232,225,212,0.15); --line-strong:rgba(232,225,212,0.32);
+  --wave:rgba(232,225,212,0.55); color-scheme:dark;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.num{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;}
+
+.app{height:100%;display:flex;flex-direction:column;}
+
+header{
+  display:flex;align-items:center;gap:14px;flex:none;
+  padding:8px 16px;border-bottom:1px solid var(--line);
+}
+h1{font-size:15px;font-weight:500;margin:0;letter-spacing:0.4em;}
+header .note{color:var(--faint);font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* 映像：画面の1/4 */
+.top{display:flex;flex:1 1 auto;min-height:170px;border-bottom:1px solid var(--line);}
+.stage{position:relative;background:var(--stage);height:100%;aspect-ratio:16/9;flex:none;max-width:74%;overflow:hidden;order:2;border-left:1px solid var(--line);}
+.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;pointer-events:none;}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;}
+.stage.drag{outline:1px solid var(--red);outline-offset:-2px;}
+.stage .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:12px;text-align:center;padding:16px;}
+
+/* 方形波 */
+.side{flex:1;min-width:0;display:flex;flex-direction:column;order:1;}
+.side-mat{flex:none;padding:10px 14px 8px;border-bottom:1px solid var(--line);}
+.side-mat .slots li{padding:5px 0;}
+.wave-shell{flex:1;min-height:0;background:var(--panel);display:flex;flex-direction:column;}
+.wave{position:relative;flex:1;min-height:0;}
+.wave svg{display:block;width:100%;height:100%;}
+.wave .tag{position:absolute;left:6px;color:var(--faint);font-size:9px;letter-spacing:.06em;pointer-events:none;}
+.wave .tag.up{top:8px;} .wave .tag.dn{bottom:8px;}
+.readout{flex:none;display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:5px 12px;border-top:1px solid var(--line);font-size:11px;color:var(--dim);}
+@media (max-width:760px){
+  .top{flex-direction:column;height:auto;}
+  .stage{width:100%;max-width:100%;aspect-ratio:16/9;height:auto;order:0;border-left:none;border-bottom:1px solid var(--line);}
+  .wave{height:52px;flex:none;}
+}
+.side-mat .slots{margin-bottom:6px;}
+.readout b{color:var(--ink);font-weight:400;}
+.stalenote{color:var(--red);font-size:11px;}
+
+/* 操作：残り3/4 */
+.ctl{flex:0 0 auto;max-height:66vh;display:grid;
+     grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+     align-items:start;overflow:auto;}
+.swatch{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px;}
+.swatch button{padding:0;height:20px;border:1px solid var(--line);cursor:pointer;}
+.swatch button.on{outline:2px solid var(--red);outline-offset:1px;border-color:var(--red);}
+.pending{display:flex;gap:8px;align-items:center;border:1px solid var(--red);padding:5px 8px;margin-bottom:8px;font-size:12px;}
+.pending span{flex:1;}
+.pending button{padding:2px 8px;font-size:11px;}
+.clips{list-style:none;margin:0 0 10px;padding:0;font-size:12px;max-height:120px;overflow:auto;}
+.clips li{display:flex;gap:8px;align-items:center;padding:3px 0;border-bottom:1px dotted var(--line);}
+.clips li .no{color:var(--faint);width:1.8em;flex:none;}
+.clips li .tm{flex:1;color:var(--dim);}
+.clips li button{border:none;padding:1px 5px;font-size:11px;color:var(--faint);}
+.clips li button:hover{color:var(--red);}
+.sessinfo{font-size:11px;color:var(--dim);margin-bottom:6px;}
+.col{padding:10px 12px;min-width:0;border-left:1px solid var(--line);}
+.col:first-child{border-left:none;}
+h2{font-size:10.5px;font-weight:400;color:var(--dim);margin:0 0 5px;letter-spacing:.14em;
+   display:flex;align-items:center;gap:6px;}
+h2.fold{cursor:pointer;}
+h2.fold::before{content:"\25BE";font-size:9px;color:var(--faint);}
+h2.fold.closed::before{content:"\25B8";}
+h2.fold:hover{color:var(--ink);}
+h2 .reset{margin-left:auto;border:none;padding:0 4px;font-size:10px;color:var(--faint);letter-spacing:0;opacity:0;}
+h2:hover .reset{opacity:1;}
+h2 .reset:hover{color:var(--red);}
+h2.gap{margin-top:12px;}
+
+.slots{list-style:none;margin:0 0 8px;padding:0;font-size:12px;}
+.slots li{display:flex;gap:8px;padding:3px 0;border-bottom:1px dotted var(--line);align-items:baseline;cursor:pointer;}
+.slots li .rk{color:var(--faint);width:2.6em;flex:none;}
+.slots li .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.slots li .nm.void{color:var(--faint);}
+.slots li .du{color:var(--dim);}
+.slots li .mu{flex:none;font-size:11px;color:var(--dim);border:1px solid var(--line);padding:0 6px;cursor:pointer;}
+.slots li .mu:hover{border-color:var(--ink);}
+.slots li .mu.off{color:var(--red);border-color:var(--red);text-decoration:line-through;}
+.slots li .mu.na{color:var(--faint);border-style:dotted;text-decoration:none;}
+.jump{position:fixed;z-index:40;display:flex;gap:3px;padding:3px;
+      background:var(--panel);border:1px solid var(--red);}
+.jump button{width:28px;height:24px;padding:0;font-size:12px;border:1px solid var(--line);}
+.jump button.hot{background:var(--red);color:var(--ground);border-color:var(--red);}
+.slots li .rk{cursor:grab;}
+.slots li .rk:active{cursor:grabbing;}
+.slots li .cdot{flex:none;width:12px;height:12px;border:1px solid var(--line);cursor:pointer;}
+.slots li .cdot:hover{border-color:var(--red);}
+.slots li .mv{flex:none;font-size:12px;color:var(--faint);padding:0 3px;cursor:pointer;line-height:1;}
+.slots li .mv:hover{color:var(--red);}
+.slots li .rep{color:var(--faint);font-size:10px;opacity:0;flex:none;}
+.slots li:hover .rep{opacity:1;color:var(--red);}
+
+.seg{display:flex;border:1px solid var(--line-strong);margin-bottom:7px;flex-wrap:wrap;}
+.seg button{flex:1;border:none;border-right:1px solid var(--line);padding:5px 2px;font-size:12px;color:var(--faint);background:transparent;min-width:0;}
+.seg button:last-child{border-right:none;}
+.seg button.on{color:var(--ink);box-shadow:inset 0 -2px 0 var(--red);}
+
+.steps{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 5px;}
+.steps button{flex:1 1 auto;min-width:34px;padding:3px 2px;font-size:11px;border:1px solid var(--line);letter-spacing:0;}
+.steps button.on{border-color:var(--red);color:var(--red);}
+label.field{display:block;margin-bottom:6px;}
+label.field .lab{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:2px;}
+label.field .lab b{color:var(--ink);font-weight:400;}
+input[type=range]{width:100%;accent-color:var(--red);height:14px;margin:0;}
+input[type=file]{display:none;}
+
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;}
+button,.fakebtn{font:inherit;font-size:12px;cursor:pointer;background:transparent;color:var(--ink);border:1px solid var(--line-strong);padding:5px 11px;letter-spacing:.04em;}
+button:hover,.fakebtn:hover{border-color:var(--ink);}
+button:disabled{opacity:.3;cursor:default;border-color:var(--line);}
+button.primary{border-color:var(--red);color:var(--red);}
+button.primary:hover{background:var(--red);color:var(--ground);}
+button.primary.stale{background:var(--red);color:var(--ground);}
+.hide{display:none !important;}
+button.act{border-color:var(--red);color:var(--red);box-shadow:inset 0 -2px 0 var(--red);}
+:focus-visible{outline:2px solid var(--red);outline-offset:1px;}
+
+/* レシピは重ねて出す */
+.recipe{
+  position:fixed;inset:24px;z-index:20;background:var(--ground);
+  border:1px solid var(--line-strong);padding:16px 20px;display:none;
+  flex-direction:column;
+}
+.recipe.open{display:flex;}
+.tabs{display:flex;gap:14px;margin-bottom:10px;font-size:12px;}
+.tabs button{border:none;padding:2px 0;color:var(--faint);border-bottom:1px solid transparent;}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--red);}
+textarea{flex:1;width:100%;background:var(--stage);color:var(--ink);border:1px solid var(--line);padding:12px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11.5px;line-height:1.6;resize:none;white-space:pre;overflow:auto;margin-bottom:10px;}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) textarea{background:#F6F4EF;}}
+
+/* Galaxy visual skin: presentation only. */
+:root,:root[data-theme="dark"],:root[data-theme="light"]{
+ --ground:#070d13;--panel:#101a22;--stage:#060b10;
+ --ink:#dce5e8;--dim:#9aafb6;--faint:#81959d;
+ --line:#263740;--line-strong:#41545e;--red:#b9e4d4;
+ --wave:#9bbfb9;color-scheme:dark;
+}
+/* Macが明るい表示の時も、上の暗い色を使う（でないと暗い地に暗い文字になってボタンの字が消える） */
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --ground:#070d13;--panel:#101a22;--stage:#060b10;
+    --ink:#dce5e8;--dim:#9aafb6;--faint:#81959d;
+    --line:#263740;--line-strong:#41545e;--red:#b9e4d4;
+    --wave:#9bbfb9;color-scheme:dark;
+  }
+}
+html,body{height:auto;min-height:100%;overflow:auto;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:13px;line-height:1.7;}
+.app{height:auto;min-height:100dvh;max-width:1800px;margin:auto;}
+header{min-height:100px;padding:22px 36px;gap:28px;border-bottom:1px solid var(--line);}
+h1{font:32px Georgia,"Hiragino Mincho ProN",serif;letter-spacing:.12em;white-space:nowrap;}
+h1::after{content:".";color:#b9e4d4;margin-left:4px;}
+header .note{font-size:12px;line-height:1.9;white-space:normal;color:var(--dim);max-width:620px;overflow:visible;}
+header::after{content:"PARA GROOVEAT / FIVE LAYERS";margin-left:auto;font:10px ui-monospace,monospace;letter-spacing:.16em;color:var(--faint);text-align:right;}
+.top{display:grid;grid-template-columns:340px minmax(0,1fr);flex:none;min-height:440px;height: min(58vw,580px);margin:0;border-bottom:1px solid var(--line);}
+.stage{grid-column:2;grid-row:1;order:initial;aspect-ratio:auto;width:100%;max-width:none;height:100%;border-left:1px solid var(--line);background:radial-gradient(ellipse at center,#13212a 0%,#070d13 75%);}
+.stage .empty{color:#93a7ae;font-size:13px;line-height:2.1;padding:36px;}
+.stage .empty::before{content:"PREVIEW";position:absolute;top:25px;left:28px;font:10px ui-monospace,monospace;letter-spacing:.2em;color:var(--faint);}
+.stage.drag{outline:2px solid #b9e4d4;}
+.side{grid-column:1;grid-row:1;min-height:0;order:initial;background:#0b131b;}
+.side-mat{padding:24px 20px 18px;}
+.side-mat h2{font-size:11px;letter-spacing:.16em;margin-bottom:16px;}
+.side-mat .slots li{padding:9px 0;border-bottom:1px solid #263740;gap:5px;font-size:11px;}
+.slots li .rk{color:#a9c7bf;}
+.slots li .mu{border-radius:4px;font-size:10px;padding:1px 4px;}
+.slots li .mu.off{color:#f29c8b;border-color:#ba6859;}
+.slots li .mu.ky.off{text-decoration:none;color:#c9f0e0;border-color:#91c9b5;background:#193a35;}
+.slots li .rep{font-size:9px;}
+.slots li .cdot{width:10px;height:10px;border-radius:50%;}
+.side-mat .btnrow{margin-top:14px;gap:6px;}
+.wave-shell{background:#0e1820;min-height:100px;}
+.wave{margin:12px 12px 0;min-height:50px;}
+.readout{padding:12px 18px;font-size:10px;gap:9px 16px;line-height:1.8;}
+.readout b{color:#c2e5d9;}
+.ctl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;padding:28px 28px 40px;max-height:none;overflow:visible;align-items:stretch;background:#070d13;}
+.col{padding:20px;border:1px solid var(--line);border-radius:10px;background:#101a22;min-width:0;}
+.col:first-child{border-left:1px solid var(--line);}
+h2{font-size:12px;color:#c9dbde;font-weight:500;letter-spacing:.08em;margin-bottom:14px;}
+h2.gap{margin-top:24px;padding-top:18px;border-top:1px solid #263740;}
+h2 .reset{opacity:1;color:#81959d;}
+label.field{margin-bottom:15px;}
+label.field .lab{font-size:11px;margin-bottom:8px;color:#99adb5;}
+label.field .lab b{color:#d7ede4;}
+button,.fakebtn{border:1px solid #344b55;border-radius:6px;padding:8px 11px;letter-spacing:.02em;font-size:12px;transition:background .15s,border-color .15s;}
+button:hover,.fakebtn:hover{border-color:#a9d8cb;background:#172c32;}
+button:disabled{opacity:.5;}
+button.primary{background:#b9e4d4;border-color:#b9e4d4;color:#10221d;font-weight:600;}
+button.primary:hover,button.primary.stale{background:#d1f0e4;color:#10221d;}
+button.act{background:#193a35;color:#c9f0e0;border-color:#91c9b5;box-shadow:none;}
+.seg{border:1px solid #344b55;border-radius:6px;overflow:hidden;margin-bottom:14px;background:#0b151d;}
+.seg button{padding:8px 4px;border:0;border-right:1px solid #263740;border-radius:0;font-size:11px;color:#9aafb6;}
+.seg button.on{background:#b9e4d4;color:#10221d;box-shadow:none;}
+.steps{gap:5px;margin-bottom:8px;}
+.steps button{padding:5px 4px;min-width:32px;border-radius:4px;}
+.steps button.on{background:#18332f;border-color:#8dc4af;color:#c0e8d9;}
+input[type=range]{height:20px;accent-color:#b9e4d4;}
+.swatch{gap:7px;margin-bottom:14px;}
+.swatch button{height:25px;border-radius:4px;}
+.swatch button.on{outline-color:#c9e9dd;border-color:#c9e9dd;}
+.pending{border-color:#688e83;border-radius:6px;padding:10px;background:#102a26;}
+.stalenote{color:#e6bba2;}
+.clips li{padding:7px 0;}
+.recipe{inset:5vh 5vw;border-radius:12px;padding:24px;background:#101a22;box-shadow:0 24px 100px #000a;}
+textarea,:root:not([data-theme="dark"]) textarea{background:#070d13;color:#dce5e8;border-radius:6px;}
+.tabs{gap:24px;}
+.tabs button.on{color:#c4e9dc;border-bottom-color:#b9e4d4;}
+.jump{border-radius:7px;box-shadow:0 8px 30px #0007;}
+:focus-visible{outline:2px solid #b9e4d4;outline-offset:3px;}
+@media(min-width:1500px){.ctl{grid-template-columns:repeat(5,minmax(0,1fr));}}
+@media(max-width:1100px){.ctl{grid-template-columns:repeat(3,minmax(0,1fr));padding:20px;}.top{grid-template-columns:310px minmax(0,1fr);height:480px;}header::after{display:none;}}
+@media(max-width:800px){header{padding:20px;gap:20px;}.top{grid-template-columns:1fr;height:auto;min-height:0;}.stage{grid-column:1;grid-row:1;height:auto;aspect-ratio:16/9;min-height:200px;border:0;border-bottom:1px solid var(--line);}.side{grid-column:1;grid-row:2;display:grid;grid-template-columns:1fr 1fr;}.side-mat{border-bottom:0;border-right:1px solid var(--line);padding:18px;}.wave-shell{min-height:230px;}.wave{height:auto;flex:1;}.ctl{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px;}.col{padding:16px;}}
+@media(max-width:500px){header{align-items:flex-start;flex-direction:column;gap:8px;}h1{font-size:29px;}header .note{font-size:11px;}.side{display:flex;}.side-mat{border-right:0;border-bottom:1px solid var(--line);}.wave-shell{min-height:120px;}.wave{min-height:60px;}.ctl{grid-template-columns:1fr;}.recipe{inset:12px;padding:16px;}}
+@media(prefers-reduced-motion:reduce){button,.fakebtn{transition:none;}}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <h1>para grooveat</h1>
+  <div class="note">五つの層が対等に入れ替わる。手前を「先頭」、その裏を「後ろ」と呼ぶ。「演奏」中はつまみがその場で効く。</div>
+</header>
+
+<div class="top">
+<div class="stage" id="stage">
+  <canvas id="view"></canvas>
+  <div class="empty" id="empty">二本以上読み込む。ここに放り込むか、行を押して選ぶ。H.264 の mp4 / mov。写真はまとめて放り込むと一つの層に束で入る。</div>
+</div>
+
+<div class="side">
+
+<div class="side-mat">
+  <h2>素材</h2>
+  <ul class="slots" id="slots">
+    <li data-i="0"><span class="rk num">層1</span><span class="nm void">未</span><span class="du"></span><span class="mu" data-m="0">音</span><span class="mu vi" data-v="0">映</span><span class="mu rv" data-r="0">逆</span><span class="mu ky" data-k="0" title="抜き：画の縁の色に近い所を透かす（[ ] で強さ）">抜</span><span class="cdot" data-cd="0"></span><span class="mv up" data-u="0">↑</span><span class="mv dn" data-d="0">↓</span><span class="rep">差し替え</span></li>
+    <li data-i="1"><span class="rk num">層2</span><span class="nm void">未</span><span class="du"></span><span class="mu" data-m="1">音</span><span class="mu vi" data-v="1">映</span><span class="mu rv" data-r="1">逆</span><span class="mu ky" data-k="1" title="抜き：画の縁の色に近い所を透かす（[ ] で強さ）">抜</span><span class="cdot" data-cd="1"></span><span class="mv up" data-u="1">↑</span><span class="mv dn" data-d="1">↓</span><span class="rep">差し替え</span></li>
+    <li data-i="2"><span class="rk num">層3</span><span class="nm void">未</span><span class="du"></span><span class="mu" data-m="2">音</span><span class="mu vi" data-v="2">映</span><span class="mu rv" data-r="2">逆</span><span class="mu ky" data-k="2" title="抜き：画の縁の色に近い所を透かす（[ ] で強さ）">抜</span><span class="cdot" data-cd="2"></span><span class="mv up" data-u="2">↑</span><span class="mv dn" data-d="2">↓</span><span class="rep">差し替え</span></li>
+    <li data-i="3"><span class="rk num">層4</span><span class="nm void">未</span><span class="du"></span><span class="mu" data-m="3">音</span><span class="mu vi" data-v="3">映</span><span class="mu rv" data-r="3">逆</span><span class="mu ky" data-k="3" title="抜き：画の縁の色に近い所を透かす（[ ] で強さ）">抜</span><span class="cdot" data-cd="3"></span><span class="mv up" data-u="3">↑</span><span class="mv dn" data-d="3">↓</span><span class="rep">差し替え</span></li>
+    <li data-i="4"><span class="rk num">層5</span><span class="nm void">未</span><span class="du"></span><span class="mu" data-m="4">音</span><span class="mu vi" data-v="4">映</span><span class="mu rv" data-r="4">逆</span><span class="mu ky" data-k="4" title="抜き：画の縁の色に近い所を透かす（[ ] で強さ）">抜</span><span class="cdot" data-cd="4"></span><span class="mv up" data-u="4">↑</span><span class="mv dn" data-d="4">↓</span><span class="rep">差し替え</span></li>
+  </ul>
+  <ul class="slots" id="trackrow">
+    <li><span class="rk num">音源</span><span class="nm void" id="track-nm">未</span><span class="du" id="track-du"></span><span class="mu" id="track-mu">音</span><span class="rep">差し替え</span></li>
+  </ul>
+  <div class="btnrow">
+    <label class="fakebtn" for="fileinput" tabindex="0">読む</label>
+    <label class="fakebtn" for="trackinput" tabindex="0">音源</label>
+    <input type="file" id="trackinput" accept="audio/*">
+    <input type="file" id="fileinput" accept="video/mp4,video/quicktime,video/webm,video/*,image/*" multiple>
+    <button id="btn-clear">外す</button>
+    <button id="btn-resetall">全部戻す</button>
+  </div>
+</div>
+
+<div class="wave-shell">
+  <div class="wave">
+    <span class="tag up">層5</span>
+    <span class="tag dn">層1</span>
+    <svg id="svg" viewBox="0 0 1000 58" preserveAspectRatio="none" aria-hidden="true">
+      <polyline id="poly" fill="none" stroke="var(--wave)" stroke-width="1" vector-effect="non-scaling-stroke" points=""></polyline>
+      <line id="head" x1="0" y1="0" x2="0" y2="58" stroke="var(--red)" stroke-width="1" vector-effect="non-scaling-stroke" style="display:none"></line>
+    </svg>
+  </div>
+  <div class="readout">
+    <span>種 <b class="num" id="ro-seed">—</b></span>
+    <span>切替 <b class="num" id="ro-count">—</b></span>
+    <span>尺 <b class="num" id="ro-total">—</b></span>
+    <span>位置 <b class="num" id="ro-pos">00:00.0</b></span>
+    <span>今 <b class="num" id="ro-dur">—</b></span>
+    <span id="ro-layer" style="color:var(--faint)"></span>
+    <span id="ro-stale" class="stalenote"></span>
+  </div>
+</div>
+
+</div>
+</div>
+
+<div class="ctl">
+
+  <div class="col">
+    <h2>並び</h2>
+    <div class="seg" id="seg-order">
+      <button data-v="cycle" class="on">順に回す</button>
+      <button data-v="rand">抽選</button>
+      <button data-v="back">逆に回す</button>
+    </div>
+
+    <div class="seg" id="seg-backw">
+      <button data-v="prev" class="on">後ろは直前</button>
+      <button data-v="next">後ろは次</button>
+    </div>
+
+    <h2 class="gap">切り替え</h2>
+    <div class="seg" id="seg-mode">
+      <button data-v="even" class="on">一定</button>
+      <button data-v="rand">ランダム</button>
+      <button data-v="skew">偏り</button>
+      <button data-v="csv">CSV</button>
+    </div>
+
+    <div id="p-even">
+      <label class="field">
+        <span class="lab">間隔 <b class="num" id="v-int">0.20</b> 秒</span>
+        <div class="steps num" id="st-int"></div>
+        <input type="range" id="s-int" min="0.03" max="2" step="0.01" value="0.2">
+      </label>
+    </div>
+    <div id="p-rand" class="hide">
+      <label class="field">
+        <span class="lab">最短 <b class="num" id="v-rmin">0.06</b> 秒</span>
+        <input type="range" id="s-rmin" min="0.03" max="1" step="0.01" value="0.06">
+      </label>
+      <label class="field">
+        <span class="lab">最長 <b class="num" id="v-rmax">0.80</b> 秒</span>
+        <input type="range" id="s-rmax" min="0.1" max="4" step="0.05" value="0.8">
+      </label>
+    </div>
+    <div id="p-skew" class="hide">
+      <label class="field">
+        <span class="lab">長いほう <b class="num" id="v-base">2.50</b> 秒</span>
+        <input type="range" id="s-base" min="0.3" max="8" step="0.1" value="2.5">
+      </label>
+      <label class="field">
+        <span class="lab">短いほう <b class="num" id="v-stab">0.12</b> 秒</span>
+        <input type="range" id="s-stab" min="0.03" max="1" step="0.01" value="0.12">
+      </label>
+    </div>
+
+    <div id="p-csv" class="hide">
+      <div class="btnrow" style="margin-bottom:6px">
+        <label class="fakebtn" for="csvinput" tabindex="0">CSVを読む</label>
+        <input type="file" id="csvinput" accept=".csv,text/csv">
+      </div>
+      <div class="lab" id="csv-info" style="margin-bottom:8px;color:var(--faint)">未（銀河の楽器で落としたCSV）</div>
+      <div class="seg" id="seg-csvmap">
+        <button data-v="rare" class="on">目立つ時だけ</button>
+        <button data-v="lane">毎カウント</button>
+        <button data-v="step">鳴るたびに次</button>
+      </div>
+      <label class="field" id="f-csens">
+        <span class="lab">敏感さ <b class="num" id="v-csens">50</b></span>
+        <input type="range" id="s-csens" min="0" max="100" step="1" value="50">
+      </label>
+      <label class="field">
+        <span class="lab">速さ <b class="num" id="v-cpm">600</b> カウント/分</span>
+        <input type="range" id="s-cpm" min="30" max="1800" step="10" value="600">
+      </label>
+      <label class="field">
+        <span class="lab">開始 <b class="num" id="v-cfrom">1</b> カウント目</span>
+        <input type="range" id="s-cfrom" min="1" max="10000" step="1" value="1">
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="lab">うねり <b class="num" id="v-wob">0</b></span>
+      <input type="range" id="s-wob" min="0" max="100" step="1" value="0">
+    </label>
+    <label class="field">
+      <span class="lab">うねりの周期 <b class="num" id="v-wobp">6</b> 秒</span>
+      <input type="range" id="s-wobp" min="1" max="30" step="0.5" value="6">
+    </label>
+
+  </div>
+
+  <div class="col">
+    <h2>速さ</h2>
+    <div class="seg" id="seg-spdslot">
+      <button data-v="0" class="on">1</button>
+      <button data-v="1">2</button>
+      <button data-v="2">3</button>
+      <button data-v="3">4</button>
+      <button data-v="4">5</button>
+    </div>
+    <label class="field">
+      <span class="lab">この層 <b class="num" id="v-spd">1.00</b> 倍</span>
+      <input type="range" id="s-spd" min="0.15" max="3" step="0.05" value="1">
+    </label>
+
+    <h2 class="gap">コマ落とし</h2>
+    <label class="field">
+      <span class="lab">先頭 <b class="num" id="v-fps0">そのまま</b></span>
+      <div class="steps num" id="st-fps0"></div>
+      <input type="range" id="s-fps0" min="1" max="30" step="1" value="30">
+    </label>
+    <label class="field">
+      <span class="lab">後ろ <b class="num" id="v-fps1">そのまま</b></span>
+      <div class="steps num" id="st-fps1"></div>
+      <input type="range" id="s-fps1" min="1" max="30" step="1" value="30">
+    </label>
+  </div>
+
+  <div class="col">
+    <h2>変形</h2>
+    <div class="seg" id="seg-tfx">
+      <button data-v="front" class="on">先頭</button>
+      <button data-v="back">後ろ</button>
+      <button data-v="both">両方</button>
+    </div>
+    <label class="field">
+      <span class="lab">大きさ <b class="num" id="v-tsize">0</b></span>
+      <input type="range" id="s-tsize" min="0" max="100" step="1" value="0">
+    </label>
+    <label class="field">
+      <span class="lab">位置 <b class="num" id="v-tpos">0</b></span>
+      <input type="range" id="s-tpos" min="0" max="100" step="1" value="0">
+    </label>
+    <label class="field">
+      <span class="lab">回転 <b class="num" id="v-trot">0</b></span>
+      <input type="range" id="s-trot" min="0" max="100" step="1" value="0">
+    </label>
+    <label class="field">
+      <span class="lab">動き <b class="num" id="v-tmove">0</b></span>
+      <input type="range" id="s-tmove" min="0" max="100" step="1" value="0">
+    </label>
+    <div class="seg" id="seg-spin">
+      <button data-v="both" class="on">両回り</button>
+      <button data-v="cw">右回り</button>
+      <button data-v="ccw">左回り</button>
+    </div>
+    <label class="field">
+      <span class="lab">残像 <b class="num" id="v-trail">0</b></span>
+      <input type="range" id="s-trail" min="0" max="100" step="1" value="0">
+    </label>
+    <label class="field">
+      <span class="lab">反転が出る率 <b class="num" id="v-flip">0</b> %</span>
+      <input type="range" id="s-flip" min="0" max="100" step="1" value="0">
+    </label>
+
+  </div>
+
+  <div class="col">
+    <h2>回し</h2>
+    <label class="field">
+      <span class="lab">刻みの間隔 <b class="num" id="v-rint">1.00</b> 秒</span>
+      <input type="range" id="s-rint" min="0.02" max="2" step="0.01" value="1">
+    </label>
+    <label class="field">
+      <span class="lab">一回の角度 <b class="num" id="v-rstep">0</b> 度</span>
+      <input type="range" id="s-rstep" min="0" max="180" step="1" value="0">
+    </label>
+    <div class="seg" id="seg-roll">
+      <button data-v="cw" class="on">右</button>
+      <button data-v="ccw">左</button>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>ちぎり</h2>
+    <label class="field">
+      <span class="lab">出る率 <b class="num" id="v-mask">0</b> %</span>
+      <input type="range" id="s-mask" min="0" max="100" step="1" value="0">
+    </label>
+    <label class="field">
+      <span class="lab">大きさ <b class="num" id="v-msize">50</b></span>
+      <input type="range" id="s-msize" min="0" max="100" step="1" value="50">
+    </label>
+    <label class="field">
+      <span class="lab">荒さ <b class="num" id="v-mrough">40</b></span>
+      <input type="range" id="s-mrough" min="0" max="100" step="1" value="40">
+    </label>
+    <label class="field">
+      <span class="lab">複雑さ <b class="num" id="v-mcplx">50</b></span>
+      <input type="range" id="s-mcplx" min="0" max="100" step="1" value="50">
+    </label>
+  </div>
+
+  <div class="col">
+    <h2>色</h2>
+    <div class="seg" id="seg-colslot">
+      <button data-v="0" class="on">1</button>
+      <button data-v="1">2</button>
+      <button data-v="2">3</button>
+      <button data-v="3">4</button>
+      <button data-v="4">5</button>
+    </div>
+    <div class="swatch" id="sw-col">
+      <button data-c="0" title="蛍光ピンク" style="background:#FF2D95"></button>
+      <button data-c="1" title="蛍光グリーン" style="background:#39FF14"></button>
+      <button data-c="2" title="蛍光イエロー" style="background:#F6FF00"></button>
+      <button data-c="3" title="蛍光オレンジ" style="background:#FF6A00"></button>
+      <button data-c="4" title="シアン" style="background:#00E5FF"></button>
+      <button data-c="5" title="水色" style="background:#7FC8F8"></button>
+      <button data-c="6" title="ピンク" style="background:#FFA8C5"></button>
+      <button data-c="7" title="青" style="background:#1B3FD8"></button>
+      <button data-c="8" title="紫" style="background:#7B2FD6"></button>
+      <button data-c="9" title="赤" style="background:#E01B12"></button>
+      <button data-c="10" title="金" style="background:#C9A227"></button>
+      <button data-c="11" title="銀" style="background:#B8BCC0"></button>
+      <button data-c="12" title="白" style="background:#FFFFFF"></button>
+      <button data-c="13" title="灰" style="background:#808080"></button>
+      <button data-c="14" title="黒" style="background:#000000"></button>
+    </div>
+    <div class="steps" id="sw-blend">
+      <button data-b="difference" class="on">差分</button>
+      <button data-b="multiply">乗算</button>
+      <button data-b="screen">スクリーン</button>
+      <button data-b="lighter">加算</button>
+      <button data-b="overlay">オーバーレイ</button>
+      <button data-b="hue">色相</button>
+      <button data-b="color-dodge">覆い焼き</button>
+      <button data-b="color-burn">焼き込み</button>
+    </div>
+    <label class="field">
+      <span class="lab">濃さ <b class="num" id="v-col">0</b></span>
+      <input type="range" id="s-col" min="0" max="100" step="1" value="0">
+    </label>
+
+  </div>
+
+  <div class="col">
+    <h2>衝突</h2>
+    <div class="seg" id="seg-collide">
+      <button data-v="none" class="on">なし</button>
+      <button data-v="push">押しのけ</button>
+      <button data-v="shake">揺さぶり</button>
+      <button data-v="diff">差分</button>
+    </div>
+    <label class="field">
+      <span class="lab">強さ <b class="num" id="v-cst">50</b></span>
+      <input type="range" id="s-cst" min="0" max="100" step="1" value="50">
+    </label>
+    <label class="field">
+      <span class="lab">粗さ <b class="num" id="v-cres">480</b> px</span>
+      <input type="range" id="s-cres" min="120" max="960" step="40" value="480">
+    </label>
+  </div>
+
+  <div class="col">
+    <h2>飛び</h2>
+    <div class="seg" id="seg-jump">
+      <button data-v="off" class="on">止める</button>
+      <button data-v="rand">ランダム</button>
+      <button data-v="csv">CSVの出来事</button>
+    </div>
+    <div class="steps" id="st-jumpg" style="margin:8px 0">
+      <button data-g="tf" class="on">変形</button>
+      <button data-g="roll">回し</button>
+      <button data-g="mask" class="on">ちぎり</button>
+      <button data-g="col" class="on">色</button>
+      <button data-g="cl">衝突</button>
+      <button data-g="fps">コマ落とし</button>
+    </div>
+    <label class="field">
+      <span class="lab">間隔（ランダム） <b class="num" id="v-jint">2.0</b> 秒</span>
+      <input type="range" id="s-jint" min="0.2" max="10" step="0.1" value="2">
+    </label>
+    <label class="field">
+      <span class="lab">跳ね幅 <b class="num" id="v-jamp">70</b></span>
+      <input type="range" id="s-jamp" min="5" max="100" step="1" value="70">
+    </label>
+    <label class="field">
+      <span class="lab">一度に飛ぶ数 <b class="num" id="v-jn">2</b></span>
+      <input type="range" id="s-jn" min="1" max="6" step="1" value="2">
+    </label>
+    <div class="btnrow"><button id="btn-junjump">飛ぶ前に戻す</button></div>
+
+    <h2 class="gap">事件</h2>
+    <div class="seg" id="seg-ep">
+      <button data-v="off" class="on">起こさない</button>
+      <button data-v="on">起こす</button>
+    </div>
+    <div class="steps" id="st-epk" style="margin:8px 0">
+      <button data-k="zoom" class="on">大きくなる</button>
+      <button data-k="hold" class="on">止まる</button>
+      <button data-k="burst" class="on">連打</button>
+      <button data-k="neg">反転</button>
+      <button data-k="spin">回る</button>
+      <button data-k="slow">ゆっくり</button>
+    </div>
+    <label class="field">
+      <span class="lab">起きる間隔（平均） <b class="num" id="v-epi">20</b> 秒</span>
+      <input type="range" id="s-epi" min="3" max="90" step="1" value="20">
+    </label>
+    <label class="field">
+      <span class="lab">長さ <b class="num" id="v-epd">2.0</b> 秒</span>
+      <input type="range" id="s-epd" min="0.5" max="6" step="0.1" value="2">
+    </label>
+    <div class="btnrow"><button id="btn-epnow">今すぐ起こす</button></div>
+  </div>
+
+  <div class="col">
+    <h2>音</h2>
+    <div class="seg" id="seg-audio">
+      <button data-v="base" class="on">地に固定</button>
+      <button data-v="follow">映像と一緒</button>
+      <button data-v="both">両方</button>
+    </div>
+
+    <h2 class="gap">走らせる</h2>
+    <div class="btnrow" style="margin-bottom:6px">
+      <button id="btn-live" disabled>演奏</button>
+      <button class="primary" id="btn-gen" disabled>生成</button>
+      <button id="btn-play" disabled>再生</button>
+    </div>
+    <label class="field">
+      <span class="lab">全体の尺（生成用） <b class="num" id="v-len">30</b> 秒</span>
+      <input type="range" id="s-len" min="10" max="300" step="5" value="30">
+    </label>
+    <div class="pending hide" id="recdone"></div>
+    <div class="btnrow" style="margin-bottom:14px">
+      <button id="btn-loop" disabled>リピート</button>
+      <button id="btn-freeze" disabled>明滅止め</button>
+      <button id="btn-home" disabled>頭出し</button>
+      <button id="btn-rec" disabled>録画</button>
+      <button id="btn-recipe" disabled>レシピ</button>
+      <button id="btn-popout">別窓</button>
+    </div>
+
+  </div>
+
+  <div class="col">
+    <h2>収集</h2>
+    <div class="btnrow" style="margin-bottom:6px">
+      <button id="btn-sess" disabled>収集開始</button>
+      <button id="btn-mark" disabled>ここから</button>
+      <button id="btn-bundle" disabled>まとめて落とす</button>
+    </div>
+    <label class="field">
+      <span class="lab">遡り <b class="num" id="v-pre">3</b> 秒</span>
+      <input type="range" id="s-pre" min="0" max="15" step="0.5" value="3">
+    </label>
+    <div class="pending hide" id="pending"></div>
+    <ul class="clips" id="clips"></ul>
+
+    <label class="field" style="margin-bottom:0">
+      <span class="lab">音量 <b class="num" id="v-vol">80</b></span>
+      <input type="range" id="s-vol" min="0" max="100" step="1" value="80">
+    </label>
+  </div>
+
+</div>
+</div>
+
+<div class="jump hide" id="jump"></div>
+
+<div class="recipe" id="recipe">
+  <div class="tabs">
+    <button data-t="list" class="on">読む用</button>
+    <button data-t="ffmpeg">ffmpeg</button>
+  </div>
+  <textarea id="recipetext" readonly spellcheck="false"></textarea>
+  <div class="btnrow">
+    <button id="btn-copy">コピー</button>
+    <button id="btn-save">ファイルで保存</button>
+    <button id="btn-closerecipe">閉じる</button>
+  </div>
+</div>
+
+<script>
+/* fix-webm-duration 1.0.6 (録画したwebmに長さを書き込む)
+The MIT license
+
+Copyright (c) 2018 Yury Sitnikov
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+(function (name, definition) {
+    if (typeof define === 'function' && define.amd) { // RequireJS / AMD
+        define(definition);
+    } else if (typeof module !== 'undefined' && module.exports) { // CommonJS / Node.js
+        module.exports = definition();
+    } else { // Direct include
+        window.ysFixWebmDuration = definition();
+    }
+})('fix-webm-duration', function () {
+    /*
+     * This is the list of possible WEBM file sections by their IDs.
+     * Possible types: Container, Binary, Uint, Int, String, Float, Date
+     */
+    var sections = {
+        0xa45dfa3: { name: 'EBML', type: 'Container' },
+        0x286: { name: 'EBMLVersion', type: 'Uint' },
+        0x2f7: { name: 'EBMLReadVersion', type: 'Uint' },
+        0x2f2: { name: 'EBMLMaxIDLength', type: 'Uint' },
+        0x2f3: { name: 'EBMLMaxSizeLength', type: 'Uint' },
+        0x282: { name: 'DocType', type: 'String' },
+        0x287: { name: 'DocTypeVersion', type: 'Uint' },
+        0x285: { name: 'DocTypeReadVersion', type: 'Uint' },
+        0x6c: { name: 'Void', type: 'Binary' },
+        0x3f: { name: 'CRC-32', type: 'Binary' },
+        0xb538667: { name: 'SignatureSlot', type: 'Container' },
+        0x3e8a: { name: 'SignatureAlgo', type: 'Uint' },
+        0x3e9a: { name: 'SignatureHash', type: 'Uint' },
+        0x3ea5: { name: 'SignaturePublicKey', type: 'Binary' },
+        0x3eb5: { name: 'Signature', type: 'Binary' },
+        0x3e5b: { name: 'SignatureElements', type: 'Container' },
+        0x3e7b: { name: 'SignatureElementList', type: 'Container' },
+        0x2532: { name: 'SignedElement', type: 'Binary' },
+        0x8538067: { name: 'Segment', type: 'Container' },
+        0x14d9b74: { name: 'SeekHead', type: 'Container' },
+        0xdbb: { name: 'Seek', type: 'Container' },
+        0x13ab: { name: 'SeekID', type: 'Binary' },
+        0x13ac: { name: 'SeekPosition', type: 'Uint' },
+        0x549a966: { name: 'Info', type: 'Container' },
+        0x33a4: { name: 'SegmentUID', type: 'Binary' },
+        0x3384: { name: 'SegmentFilename', type: 'String' },
+        0x1cb923: { name: 'PrevUID', type: 'Binary' },
+        0x1c83ab: { name: 'PrevFilename', type: 'String' },
+        0x1eb923: { name: 'NextUID', type: 'Binary' },
+        0x1e83bb: { name: 'NextFilename', type: 'String' },
+        0x444: { name: 'SegmentFamily', type: 'Binary' },
+        0x2924: { name: 'ChapterTranslate', type: 'Container' },
+        0x29fc: { name: 'ChapterTranslateEditionUID', type: 'Uint' },
+        0x29bf: { name: 'ChapterTranslateCodec', type: 'Uint' },
+        0x29a5: { name: 'ChapterTranslateID', type: 'Binary' },
+        0xad7b1: { name: 'TimecodeScale', type: 'Uint' },
+        0x489: { name: 'Duration', type: 'Float' },
+        0x461: { name: 'DateUTC', type: 'Date' },
+        0x3ba9: { name: 'Title', type: 'String' },
+        0xd80: { name: 'MuxingApp', type: 'String' },
+        0x1741: { name: 'WritingApp', type: 'String' },
+        // 0xf43b675: { name: 'Cluster', type: 'Container' },
+        0x67: { name: 'Timecode', type: 'Uint' },
+        0x1854: { name: 'SilentTracks', type: 'Container' },
+        0x18d7: { name: 'SilentTrackNumber', type: 'Uint' },
+        0x27: { name: 'Position', type: 'Uint' },
+        0x2b: { name: 'PrevSize', type: 'Uint' },
+        0x23: { name: 'SimpleBlock', type: 'Binary' },
+        0x20: { name: 'BlockGroup', type: 'Container' },
+        0x21: { name: 'Block', type: 'Binary' },
+        0x22: { name: 'BlockVirtual', type: 'Binary' },
+        0x35a1: { name: 'BlockAdditions', type: 'Container' },
+        0x26: { name: 'BlockMore', type: 'Container' },
+        0x6e: { name: 'BlockAddID', type: 'Uint' },
+        0x25: { name: 'BlockAdditional', type: 'Binary' },
+        0x1b: { name: 'BlockDuration', type: 'Uint' },
+        0x7a: { name: 'ReferencePriority', type: 'Uint' },
+        0x7b: { name: 'ReferenceBlock', type: 'Int' },
+        0x7d: { name: 'ReferenceVirtual', type: 'Int' },
+        0x24: { name: 'CodecState', type: 'Binary' },
+        0x35a2: { name: 'DiscardPadding', type: 'Int' },
+        0xe: { name: 'Slices', type: 'Container' },
+        0x68: { name: 'TimeSlice', type: 'Container' },
+        0x4c: { name: 'LaceNumber', type: 'Uint' },
+        0x4d: { name: 'FrameNumber', type: 'Uint' },
+        0x4b: { name: 'BlockAdditionID', type: 'Uint' },
+        0x4e: { name: 'Delay', type: 'Uint' },
+        0x4f: { name: 'SliceDuration', type: 'Uint' },
+        0x48: { name: 'ReferenceFrame', type: 'Container' },
+        0x49: { name: 'ReferenceOffset', type: 'Uint' },
+        0x4a: { name: 'ReferenceTimeCode', type: 'Uint' },
+        0x2f: { name: 'EncryptedBlock', type: 'Binary' },
+        0x654ae6b: { name: 'Tracks', type: 'Container' },
+        0x2e: { name: 'TrackEntry', type: 'Container' },
+        0x57: { name: 'TrackNumber', type: 'Uint' },
+        0x33c5: { name: 'TrackUID', type: 'Uint' },
+        0x3: { name: 'TrackType', type: 'Uint' },
+        0x39: { name: 'FlagEnabled', type: 'Uint' },
+        0x8: { name: 'FlagDefault', type: 'Uint' },
+        0x15aa: { name: 'FlagForced', type: 'Uint' },
+        0x1c: { name: 'FlagLacing', type: 'Uint' },
+        0x2de7: { name: 'MinCache', type: 'Uint' },
+        0x2df8: { name: 'MaxCache', type: 'Uint' },
+        0x3e383: { name: 'DefaultDuration', type: 'Uint' },
+        0x34e7a: { name: 'DefaultDecodedFieldDuration', type: 'Uint' },
+        0x3314f: { name: 'TrackTimecodeScale', type: 'Float' },
+        0x137f: { name: 'TrackOffset', type: 'Int' },
+        0x15ee: { name: 'MaxBlockAdditionID', type: 'Uint' },
+        0x136e: { name: 'Name', type: 'String' },
+        0x2b59c: { name: 'Language', type: 'String' },
+        0x6: { name: 'CodecID', type: 'String' },
+        0x23a2: { name: 'CodecPrivate', type: 'Binary' },
+        0x58688: { name: 'CodecName', type: 'String' },
+        0x3446: { name: 'AttachmentLink', type: 'Uint' },
+        0x1a9697: { name: 'CodecSettings', type: 'String' },
+        0x1b4040: { name: 'CodecInfoURL', type: 'String' },
+        0x6b240: { name: 'CodecDownloadURL', type: 'String' },
+        0x2a: { name: 'CodecDecodeAll', type: 'Uint' },
+        0x2fab: { name: 'TrackOverlay', type: 'Uint' },
+        0x16aa: { name: 'CodecDelay', type: 'Uint' },
+        0x16bb: { name: 'SeekPreRoll', type: 'Uint' },
+        0x2624: { name: 'TrackTranslate', type: 'Container' },
+        0x26fc: { name: 'TrackTranslateEditionUID', type: 'Uint' },
+        0x26bf: { name: 'TrackTranslateCodec', type: 'Uint' },
+        0x26a5: { name: 'TrackTranslateTrackID', type: 'Binary' },
+        0x60: { name: 'Video', type: 'Container' },
+        0x1a: { name: 'FlagInterlaced', type: 'Uint' },
+        0x13b8: { name: 'StereoMode', type: 'Uint' },
+        0x13c0: { name: 'AlphaMode', type: 'Uint' },
+        0x13b9: { name: 'OldStereoMode', type: 'Uint' },
+        0x30: { name: 'PixelWidth', type: 'Uint' },
+        0x3a: { name: 'PixelHeight', type: 'Uint' },
+        0x14aa: { name: 'PixelCropBottom', type: 'Uint' },
+        0x14bb: { name: 'PixelCropTop', type: 'Uint' },
+        0x14cc: { name: 'PixelCropLeft', type: 'Uint' },
+        0x14dd: { name: 'PixelCropRight', type: 'Uint' },
+        0x14b0: { name: 'DisplayWidth', type: 'Uint' },
+        0x14ba: { name: 'DisplayHeight', type: 'Uint' },
+        0x14b2: { name: 'DisplayUnit', type: 'Uint' },
+        0x14b3: { name: 'AspectRatioType', type: 'Uint' },
+        0xeb524: { name: 'ColourSpace', type: 'Binary' },
+        0xfb523: { name: 'GammaValue', type: 'Float' },
+        0x383e3: { name: 'FrameRate', type: 'Float' },
+        0x61: { name: 'Audio', type: 'Container' },
+        0x35: { name: 'SamplingFrequency', type: 'Float' },
+        0x38b5: { name: 'OutputSamplingFrequency', type: 'Float' },
+        0x1f: { name: 'Channels', type: 'Uint' },
+        0x3d7b: { name: 'ChannelPositions', type: 'Binary' },
+        0x2264: { name: 'BitDepth', type: 'Uint' },
+        0x62: { name: 'TrackOperation', type: 'Container' },
+        0x63: { name: 'TrackCombinePlanes', type: 'Container' },
+        0x64: { name: 'TrackPlane', type: 'Container' },
+        0x65: { name: 'TrackPlaneUID', type: 'Uint' },
+        0x66: { name: 'TrackPlaneType', type: 'Uint' },
+        0x69: { name: 'TrackJoinBlocks', type: 'Container' },
+        0x6d: { name: 'TrackJoinUID', type: 'Uint' },
+        0x40: { name: 'TrickTrackUID', type: 'Uint' },
+        0x41: { name: 'TrickTrackSegmentUID', type: 'Binary' },
+        0x46: { name: 'TrickTrackFlag', type: 'Uint' },
+        0x47: { name: 'TrickMasterTrackUID', type: 'Uint' },
+        0x44: { name: 'TrickMasterTrackSegmentUID', type: 'Binary' },
+        0x2d80: { name: 'ContentEncodings', type: 'Container' },
+        0x2240: { name: 'ContentEncoding', type: 'Container' },
+        0x1031: { name: 'ContentEncodingOrder', type: 'Uint' },
+        0x1032: { name: 'ContentEncodingScope', type: 'Uint' },
+        0x1033: { name: 'ContentEncodingType', type: 'Uint' },
+        0x1034: { name: 'ContentCompression', type: 'Container' },
+        0x254: { name: 'ContentCompAlgo', type: 'Uint' },
+        0x255: { name: 'ContentCompSettings', type: 'Binary' },
+        0x1035: { name: 'ContentEncryption', type: 'Container' },
+        0x7e1: { name: 'ContentEncAlgo', type: 'Uint' },
+        0x7e2: { name: 'ContentEncKeyID', type: 'Binary' },
+        0x7e3: { name: 'ContentSignature', type: 'Binary' },
+        0x7e4: { name: 'ContentSigKeyID', type: 'Binary' },
+        0x7e5: { name: 'ContentSigAlgo', type: 'Uint' },
+        0x7e6: { name: 'ContentSigHashAlgo', type: 'Uint' },
+        0xc53bb6b: { name: 'Cues', type: 'Container' },
+        0x3b: { name: 'CuePoint', type: 'Container' },
+        0x33: { name: 'CueTime', type: 'Uint' },
+        0x37: { name: 'CueTrackPositions', type: 'Container' },
+        0x77: { name: 'CueTrack', type: 'Uint' },
+        0x71: { name: 'CueClusterPosition', type: 'Uint' },
+        0x70: { name: 'CueRelativePosition', type: 'Uint' },
+        0x32: { name: 'CueDuration', type: 'Uint' },
+        0x1378: { name: 'CueBlockNumber', type: 'Uint' },
+        0x6a: { name: 'CueCodecState', type: 'Uint' },
+        0x5b: { name: 'CueReference', type: 'Container' },
+        0x16: { name: 'CueRefTime', type: 'Uint' },
+        0x17: { name: 'CueRefCluster', type: 'Uint' },
+        0x135f: { name: 'CueRefNumber', type: 'Uint' },
+        0x6b: { name: 'CueRefCodecState', type: 'Uint' },
+        0x941a469: { name: 'Attachments', type: 'Container' },
+        0x21a7: { name: 'AttachedFile', type: 'Container' },
+        0x67e: { name: 'FileDescription', type: 'String' },
+        0x66e: { name: 'FileName', type: 'String' },
+        0x660: { name: 'FileMimeType', type: 'String' },
+        0x65c: { name: 'FileData', type: 'Binary' },
+        0x6ae: { name: 'FileUID', type: 'Uint' },
+        0x675: { name: 'FileReferral', type: 'Binary' },
+        0x661: { name: 'FileUsedStartTime', type: 'Uint' },
+        0x662: { name: 'FileUsedEndTime', type: 'Uint' },
+        0x43a770: { name: 'Chapters', type: 'Container' },
+        0x5b9: { name: 'EditionEntry', type: 'Container' },
+        0x5bc: { name: 'EditionUID', type: 'Uint' },
+        0x5bd: { name: 'EditionFlagHidden', type: 'Uint' },
+        0x5db: { name: 'EditionFlagDefault', type: 'Uint' },
+        0x5dd: { name: 'EditionFlagOrdered', type: 'Uint' },
+        0x36: { name: 'ChapterAtom', type: 'Container' },
+        0x33c4: { name: 'ChapterUID', type: 'Uint' },
+        0x1654: { name: 'ChapterStringUID', type: 'String' },
+        0x11: { name: 'ChapterTimeStart', type: 'Uint' },
+        0x12: { name: 'ChapterTimeEnd', type: 'Uint' },
+        0x18: { name: 'ChapterFlagHidden', type: 'Uint' },
+        0x598: { name: 'ChapterFlagEnabled', type: 'Uint' },
+        0x2e67: { name: 'ChapterSegmentUID', type: 'Binary' },
+        0x2ebc: { name: 'ChapterSegmentEditionUID', type: 'Uint' },
+        0x23c3: { name: 'ChapterPhysicalEquiv', type: 'Uint' },
+        0xf: { name: 'ChapterTrack', type: 'Container' },
+        0x9: { name: 'ChapterTrackNumber', type: 'Uint' },
+        0x0: { name: 'ChapterDisplay', type: 'Container' },
+        0x5: { name: 'ChapString', type: 'String' },
+        0x37c: { name: 'ChapLanguage', type: 'String' },
+        0x37e: { name: 'ChapCountry', type: 'String' },
+        0x2944: { name: 'ChapProcess', type: 'Container' },
+        0x2955: { name: 'ChapProcessCodecID', type: 'Uint' },
+        0x50d: { name: 'ChapProcessPrivate', type: 'Binary' },
+        0x2911: { name: 'ChapProcessCommand', type: 'Container' },
+        0x2922: { name: 'ChapProcessTime', type: 'Uint' },
+        0x2933: { name: 'ChapProcessData', type: 'Binary' },
+        0x254c367: { name: 'Tags', type: 'Container' },
+        0x3373: { name: 'Tag', type: 'Container' },
+        0x23c0: { name: 'Targets', type: 'Container' },
+        0x28ca: { name: 'TargetTypeValue', type: 'Uint' },
+        0x23ca: { name: 'TargetType', type: 'String' },
+        0x23c5: { name: 'TagTrackUID', type: 'Uint' },
+        0x23c9: { name: 'TagEditionUID', type: 'Uint' },
+        0x23c4: { name: 'TagChapterUID', type: 'Uint' },
+        0x23c6: { name: 'TagAttachmentUID', type: 'Uint' },
+        0x27c8: { name: 'SimpleTag', type: 'Container' },
+        0x5a3: { name: 'TagName', type: 'String' },
+        0x47a: { name: 'TagLanguage', type: 'String' },
+        0x484: { name: 'TagDefault', type: 'Uint' },
+        0x487: { name: 'TagString', type: 'String' },
+        0x485: { name: 'TagBinary', type: 'Binary' }
+    };
+
+    function doInherit(newClass, baseClass) {
+        newClass.prototype = Object.create(baseClass.prototype);
+        newClass.prototype.constructor = newClass;
+    }
+
+    function WebmBase(name, type) {
+        this.name = name || 'Unknown';
+        this.type = type || 'Unknown';
+    }
+    WebmBase.prototype.updateBySource = function() { };
+    WebmBase.prototype.setSource = function(source) {
+        this.source = source;
+        this.updateBySource();
+    };
+    WebmBase.prototype.updateByData = function() { };
+    WebmBase.prototype.setData = function(data) {
+        this.data = data;
+        this.updateByData();
+    };
+
+    function WebmUint(name, type) {
+        WebmBase.call(this, name, type || 'Uint');
+    }
+    doInherit(WebmUint, WebmBase);
+    function padHex(hex) {
+        return hex.length % 2 === 1 ? '0' + hex : hex;
+    }
+    WebmUint.prototype.updateBySource = function() {
+        // use hex representation of a number instead of number value
+        this.data = '';
+        for (var i = 0; i < this.source.length; i++) {
+            var hex = this.source[i].toString(16);
+            this.data += padHex(hex);
+        }
+    };
+    WebmUint.prototype.updateByData = function() {
+        var length = this.data.length / 2;
+        this.source = new Uint8Array(length);
+        for (var i = 0; i < length; i++) {
+            var hex = this.data.substr(i * 2, 2);
+            this.source[i] = parseInt(hex, 16);
+        }
+    };
+    WebmUint.prototype.getValue = function() {
+        return parseInt(this.data, 16);
+    };
+    WebmUint.prototype.setValue = function(value) {
+        this.setData(padHex(value.toString(16)));
+    };
+
+    function WebmFloat(name, type) {
+        WebmBase.call(this, name, type || 'Float');
+    }
+    doInherit(WebmFloat, WebmBase);
+    WebmFloat.prototype.getFloatArrayType = function() {
+        return this.source && this.source.length === 4 ? Float32Array : Float64Array;
+    };
+    WebmFloat.prototype.updateBySource = function() {
+        var byteArray = this.source.reverse();
+        var floatArrayType = this.getFloatArrayType();
+        var floatArray = new floatArrayType(byteArray.buffer);
+        this.data = floatArray[0];
+    };
+    WebmFloat.prototype.updateByData = function() {
+        var floatArrayType = this.getFloatArrayType();
+        var floatArray = new floatArrayType([ this.data ]);
+        var byteArray = new Uint8Array(floatArray.buffer);
+        this.source = byteArray.reverse();
+    };
+    WebmFloat.prototype.getValue = function() {
+        return this.data;
+    };
+    WebmFloat.prototype.setValue = function(value) {
+        this.setData(value);
+    };
+
+    function WebmContainer(name, type) {
+        WebmBase.call(this, name, type || 'Container');
+    }
+    doInherit(WebmContainer, WebmBase);
+    WebmContainer.prototype.readByte = function() {
+        return this.source[this.offset++];
+    };
+    WebmContainer.prototype.readUint = function() {
+        var firstByte = this.readByte();
+        var bytes = 8 - firstByte.toString(2).length;
+        var value = firstByte - (1 << (7 - bytes));
+        for (var i = 0; i < bytes; i++) {
+            // don't use bit operators to support x86
+            value *= 256;
+            value += this.readByte();
+        }
+        return value;
+    };
+    WebmContainer.prototype.updateBySource = function() {
+        this.data = [];
+        for (this.offset = 0; this.offset < this.source.length; this.offset = end) {
+            var id = this.readUint();
+            var len = this.readUint();
+            var end = Math.min(this.offset + len, this.source.length);
+            var data = this.source.slice(this.offset, end);
+
+            var info = sections[id] || { name: 'Unknown', type: 'Unknown' };
+            var ctr = WebmBase;
+            switch (info.type) {
+                case 'Container':
+                    ctr = WebmContainer;
+                    break;
+                case 'Uint':
+                    ctr = WebmUint;
+                    break;
+                case 'Float':
+                    ctr = WebmFloat;
+                    break;
+            }
+            var section = new ctr(info.name, info.type);
+            section.setSource(data);
+            this.data.push({
+                id: id,
+                idHex: id.toString(16),
+                data: section
+            });
+        }
+    };
+    WebmContainer.prototype.writeUint = function(x, draft) {
+        for (var bytes = 1, flag = 0x80; x >= flag && bytes < 8; bytes++, flag *= 0x80) { }
+
+        if (!draft) {
+            var value = flag + x;
+            for (var i = bytes - 1; i >= 0; i--) {
+                // don't use bit operators to support x86
+                var c = value % 256;
+                this.source[this.offset + i] = c;
+                value = (value - c) / 256;
+            }
+        }
+
+        this.offset += bytes;
+    };
+    WebmContainer.prototype.writeSections = function(draft) {
+        this.offset = 0;
+        for (var i = 0; i < this.data.length; i++) {
+            var section = this.data[i],
+                content = section.data.source,
+                contentLength = content.length;
+            this.writeUint(section.id, draft);
+            this.writeUint(contentLength, draft);
+            if (!draft) {
+                this.source.set(content, this.offset);
+            }
+            this.offset += contentLength;
+        }
+        return this.offset;
+    };
+    WebmContainer.prototype.updateByData = function() {
+        // run without accessing this.source to determine total length - need to know it to create Uint8Array
+        var length = this.writeSections('draft');
+        this.source = new Uint8Array(length);
+        // now really write data
+        this.writeSections();
+    };
+    WebmContainer.prototype.getSectionById = function(id) {
+        for (var i = 0; i < this.data.length; i++) {
+            var section = this.data[i];
+            if (section.id === id) {
+                return section.data;
+            }
+        }
+        return null;
+    };
+
+    function WebmFile(source) {
+        WebmContainer.call(this, 'File', 'File');
+        this.setSource(source);
+    }
+    doInherit(WebmFile, WebmContainer);
+    WebmFile.prototype.fixDuration = function(duration, options) {
+        var logger = options && options.logger;
+        if (logger === undefined) {
+            logger = function(message) {
+                console.log(message);
+            };
+        } else if (!logger) {
+            logger = function() { };
+        }
+
+        var segmentSection = this.getSectionById(0x8538067);
+        if (!segmentSection) {
+            logger('[fix-webm-duration] Segment section is missing');
+            return false;
+        }
+
+        var infoSection = segmentSection.getSectionById(0x549a966);
+        if (!infoSection) {
+            logger('[fix-webm-duration] Info section is missing');
+            return false;
+        }
+
+        var timeScaleSection = infoSection.getSectionById(0xad7b1);
+        if (!timeScaleSection) {
+            logger('[fix-webm-duration] TimecodeScale section is missing');
+            return false;
+        }
+
+        var durationSection = infoSection.getSectionById(0x489);
+        if (durationSection) {
+            if (durationSection.getValue() <= 0) {
+                logger(`[fix-webm-duration] Duration section is present, but the value is ${durationSection.getValue()}`);
+                durationSection.setValue(duration);
+            } else {
+                logger(`[fix-webm-duration] Duration section is present, and the value is ${durationSection.getValue()}`);
+                return false;
+            }
+        } else {
+            logger('[fix-webm-duration] Duration section is missing');
+            // append Duration section
+            durationSection = new WebmFloat('Duration', 'Float');
+            durationSection.setValue(duration);
+            infoSection.data.push({
+                id: 0x489,
+                data: durationSection
+            });
+        }
+
+        // set default time scale to 1 millisecond (1000000 nanoseconds)
+        timeScaleSection.setValue(1000000);
+        infoSection.updateByData();
+        segmentSection.updateByData();
+        this.updateByData();
+
+        return true;
+    };
+    WebmFile.prototype.toBlob = function(mimeType) {
+        return new Blob([ this.source.buffer ], { type: mimeType || 'video/webm' });
+    };
+
+    function fixWebmDuration(blob, duration, callback, options) {
+        // The callback may be omitted - then the third argument is options
+        if (typeof callback === "object") {
+            options = callback;
+            callback = undefined;
+        }
+
+        if (!callback) {
+            return new Promise(function(resolve) {
+                fixWebmDuration(blob, duration, resolve, options);
+            });
+        }
+
+        try {
+            var reader = new FileReader();
+            reader.onloadend = function() {
+                try {
+                    var file = new WebmFile(new Uint8Array(reader.result));
+                    if (file.fixDuration(duration, options)) {
+                        blob = file.toBlob(blob.type);
+                    }
+                } catch (ex) {
+                    // ignore
+                }
+                callback(blob);
+            };
+            reader.readAsArrayBuffer(blob);
+        } catch (ex) {
+            callback(blob);
+        }
+    }
+
+    // Support AMD import default
+    fixWebmDuration.default = fixWebmDuration;
+
+    return fixWebmDuration;
+});
+
+</script>
+<script>
+
+(function(){
+"use strict";
+
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+var $ = function(id){ return document.getElementById(id); };
+
+var NS = 5;                        // 0 = 地、1..4 = 差し込み
+var slots = [null, null, null, null, null];   // {name,url,dur,el}
+function loaded(){ var a=[]; for(var i=0;i<NS;i++) if(slots[i] && !slots[i].pending) a.push(i); return a; }
+function firstFree(){ for(var i=0;i<NS;i++) if(!slots[i]) return i; return null; }
+var segs = [], seed = 0, params = null, totalLen = 0;
+var mode = "even", audio = "base";
+var playing = false, si = -1, t0 = 0, rafId = null;
+var stage = $("stage");
+
+function fmt(t){
+  if(!isFinite(t)) return "—";
+  var m = Math.floor(t/60), s = t - m*60;
+  return String(m).padStart(2,"0")+":"+s.toFixed(1).padStart(4,"0");
+}
+
+// ---- 素材 ----
+["dragenter","dragover"].forEach(function(ev){
+  stage.addEventListener(ev, function(e){ e.preventDefault(); stage.classList.add("drag"); });
+});
+["dragleave","drop"].forEach(function(ev){
+  stage.addEventListener(ev, function(e){ e.preventDefault(); stage.classList.remove("drag"); });
+});
+stage.addEventListener("drop", function(e){
+  var files = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || [])
+              .filter(function(f){ return isVid(f) || isPic(f); });
+  var pics = files.filter(isPic);
+  files.filter(isVid).forEach(function(f){
+    var i = firstFree();
+    if(i === null) return;
+    slots[i] = { pending:true };
+    load(f, i);
+  });
+  if(pics.length){ var j = firstFree(); if(j !== null) loadPhotos(pics, j); }
+});
+
+var targetSlot = null;   // null = 空いてる枠へ順に
+function swapSlots(i, j){
+  if(i < 0 || j < 0 || i >= NS || j >= NS) return;
+  var t = slots[i]; slots[i] = slots[j]; slots[j] = t;
+  holds[i].slot = -1; holds[j].slot = -1;
+  renderSlots(); setupView();
+  if(!playing) render();
+}
+$("slots").addEventListener("click", function(e){
+  var cd = e.target.closest(".cdot");
+  if(cd){
+    e.stopPropagation();
+    colSlot = +cd.dataset.cd;
+    var bt = $("seg-colslot").querySelector('button[data-v="' + colSlot + '"]');
+    if(bt) bt.click();
+    return;
+  }
+  var mv = e.target.closest(".mv");
+  if(mv){
+    e.stopPropagation();
+    if(mv.classList.contains("up")) swapSlots(+mv.dataset.u, +mv.dataset.u - 1);
+    else swapSlots(+mv.dataset.d, +mv.dataset.d + 1);
+    return;
+  }
+  var mu = e.target.closest(".mu");
+  if(mu){
+    e.stopPropagation();
+    if(mu.classList.contains("ky")){ var kk = +mu.dataset.k; if(!slots[kk] || slots[kk].pending) return; slots[kk].key = !slots[kk].key; slots[kk].keyAt = 0; mu.classList.toggle("off", !!slots[kk].key); $("ro-layer").textContent = "層" + (kk+1) + " 抜き：" + (slots[kk].key ? "あり" : "なし"); if(!playing) render(); return; }
+    var vid = mu.classList.contains("vi");
+    var rev = mu.classList.contains("rv");
+    var k = +(rev ? mu.dataset.r : vid ? mu.dataset.v : mu.dataset.m);
+    if(!slots[k]) return;
+    if(rev){
+      slots[k].rev = !slots[k].rev;
+      mu.classList.toggle("off", !!slots[k].rev);
+      if(slots[k].rev){ slots[k].el.pause(); slots[k].revT = slots[k].el.currentTime || 0; }
+      else if(playing){ slots[k].el.play().catch(function(){}); }
+      applyAudio();
+      if(!playing) render();
+    } else if(vid){
+      slots[k].vmute = !slots[k].vmute;
+      mu.classList.toggle("off", !!slots[k].vmute);
+      if(!playing) render();
+    } else {
+      slots[k].mute = !slots[k].mute;
+      mu.classList.toggle("off", !!slots[k].mute);
+      applyAudio();
+    }
+    return;
+  }
+  var li = e.target.closest("li"); if(!li) return;
+  targetSlot = +li.dataset.i;
+  $("fileinput").click();
+});
+$("fileinput").addEventListener("change", function(e){
+  var files = Array.prototype.slice.call(e.target.files||[]);
+  e.target.value = "";
+  var t = targetSlot; targetSlot = null;
+  var pics = files.filter(isPic);
+  files = files.filter(function(f){ return !isPic(f); });
+  if(pics.length){ var pj = (t !== null) ? t : firstFree(); t = null; if(pj !== null && pj !== undefined) loadPhotos(pics, pj); }
+  files.forEach(function(f){
+    var i;
+    if(t !== null){ i = t; t = null; }
+    else { i = firstFree(); }
+    if(i === null || i === undefined) return;
+    if(!slots[i]) slots[i] = { pending:true };
+    load(f, i);
+  });
+});
+
+function load(file, i){
+  var url = URL.createObjectURL(file);
+  var v = document.createElement("video");
+  v.src = url; v.preload = "auto"; v.loop = true; v.playsInline = true;
+  v.setAttribute("playsinline",""); v.muted = true;
+
+  function settle(dur){
+    if(!isFinite(dur) || dur <= 0){
+      URL.revokeObjectURL(url);
+      alert(file.name + " は再生できない。H.264 に変換してから。");
+      return;
+    }
+    var prev = slots[i];
+    if(prev && prev.pending) prev = null;
+    if(prev){
+      stop();
+      prev.el.pause();
+      try { if(prev.gain) prev.gain.disconnect(); if(prev.src) prev.src.disconnect(); } catch(err){}
+      prev.el.remove(); URL.revokeObjectURL(prev.url);
+    }
+    slots[i] = { name:file.name, url:url, dur:dur, el:v };
+    stage.appendChild(v);
+    wireSlot(slots[i]);
+    renderSlots();
+    setupView();
+    applySpeed();
+    refreshColUI();
+    refreshSpdUI();
+    v.addEventListener("loadeddata", function(){ if(!playing) render(); }, { once:true });
+  }
+
+  v.addEventListener("loadedmetadata", function(){
+    // 録画した webm は尺が入ってへんことがあるので、末尾まで飛ばして測る
+    if(v.duration === Infinity || !isFinite(v.duration)){
+      var done = false;
+      v.addEventListener("timeupdate", function h(){
+        if(done) return;
+        done = true;
+        v.removeEventListener("timeupdate", h);
+        var d = v.duration;
+        v.currentTime = 0;
+        settle(d);
+      });
+      try { v.currentTime = 1e101; } catch(e){ settle(NaN); }
+      return;
+    }
+    settle(v.duration);
+  });
+  v.addEventListener("error", function(){
+    alert(file.name + " は再生できない。H.264 に変換してから。");
+  });
+}
+
+// ---- 写真の束（一つの層に何枚でも。動画のふりをするキャンバスに一枚ずつ描く） ----
+function isPic(f){ return /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|heic|bmp)$/i.test(f.name); }
+function isVid(f){ return /^video\//.test(f.type) || /\.(mp4|mov|webm|m4v)$/i.test(f.name); }
+var PW = 1280, PH = 720, PIC_CACHE = 48;
+function loadPhotos(files, i){
+  files = files.slice().sort(function(a,b){ return a.name.localeCompare(b.name, "ja", { numeric:true }); });
+  var c = document.createElement("canvas"); c.width = PW; c.height = PH;
+  c.videoWidth = PW; c.videoHeight = PH; c.currentTime = 0; c.volume = 1; c.muted = true; c.playbackRate = 1;
+  c.play = function(){ return Promise.resolve(); }; c.pause = function(){};
+  var g = c.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0,0,PW,PH);
+  var prev = slots[i];
+  if(prev && !prev.pending){ stop(); try { prev.el.pause(); if(prev.gain) prev.gain.disconnect(); if(prev.src) prev.src.disconnect(); } catch(err){} if(prev.el.remove) prev.el.remove(); if(prev.url) URL.revokeObjectURL(prev.url); }
+  slots[i] = { name:"写真 " + files.length + "枚", url:"", dur:files.length, el:c, kind:"photo", photos:files, pic:-1, want:-1, cache:new Map(), ctx2:g, noAudio:true };
+  renderSlots(); setupView(); applySpeed(); refreshColUI(); refreshSpdUI();
+  setPic(slots[i], 0);
+}
+function decodePic(s, idx){
+  if(s.cache.has(idx)) return Promise.resolve(s.cache.get(idx));
+  if(s.loading && s.loading[idx]) return s.loading[idx];
+  s.loading = s.loading || {};
+  var f = s.photos[idx];
+  var pr = (window.createImageBitmap ? createImageBitmap(f, { resizeWidth:PW, resizeQuality:"medium" }) : Promise.reject())
+    .catch(function(){ return new Promise(function(ok, ng){ var im = new Image(); im.onload = function(){ ok(im); }; im.onerror = ng; im.src = URL.createObjectURL(f); }); })
+    .then(function(bm){
+      delete s.loading[idx];
+      s.cache.set(idx, bm);
+      if(s.cache.size > PIC_CACHE){ var first = s.cache.keys().next().value; if(first !== s.pic && first !== s.want){ var o = s.cache.get(first); s.cache.delete(first); try { if(o.close) o.close(); } catch(e){} } }
+      return bm;
+    }, function(){ delete s.loading[idx]; return null; });
+  s.loading[idx] = pr;
+  return pr;
+}
+function paintPic(s, bm){
+  var g = s.ctx2, w = bm.width, h = bm.height, r = Math.min(PW/w, PH/h);
+  g.fillStyle = "#000"; g.fillRect(0,0,PW,PH);
+  try { g.drawImage(bm, (PW-w*r)/2, (PH-h*r)/2, w*r, h*r); } catch(e){}
+  var k = slots.indexOf(s); if(k >= 0 && holds[k]) holds[k].slot = -1;
+}
+function setPic(s, idx){
+  if(!s || s.kind !== "photo" || !s.photos.length) return;
+  if(epHolding()) return;
+  idx = ((idx % s.photos.length) + s.photos.length) % s.photos.length;
+  if(idx === s.pic) return;
+  s.want = idx;
+  if(s.cache.has(idx)){ s.pic = idx; paintPic(s, s.cache.get(idx)); return; }
+  decodePic(s, idx).then(function(bm){ if(bm && s.want === idx){ s.pic = idx; paintPic(s, bm); if(!playing) render(); } });
+}
+function applySegPics(f){
+  if(!f || !f.pics) return;
+  for(var k in f.pics){ var sl = slots[k]; if(sl && sl.kind === "photo") setPic(sl, f.pics[k]); }
+}
+function prefetchFrom(i){
+  if(!segs.length) return;
+  for(var q = i; q < Math.min(segs.length, i + 24); q++){ var f = segs[q]; if(!f.pics) continue;
+    for(var k in f.pics){ var sl = slots[k]; if(sl && sl.kind === "photo" && !sl.cache.has(f.pics[k])) decodePic(sl, f.pics[k]); } }
+}
+function renderSlots(){
+  var lis = $("slots").children;
+  for(var i=0;i<NS;i++){
+    var s = slots[i];
+    if(s && s.pending) s = null;
+    var nm = lis[i].querySelector(".nm"), du = lis[i].querySelector(".du");
+    if(s){ nm.textContent = s.name; nm.classList.remove("void"); du.textContent = s.kind === "photo" ? "" : s.dur.toFixed(1)+"s"; }
+    else { nm.textContent = "未"; nm.classList.add("void"); du.textContent = ""; }
+    var rr = lis[i].querySelector(".mu.rv");
+    if(rr) rr.classList.toggle("off", !!(s && s.rev));
+    var mm = lis[i].querySelector(".mu:not(.vi):not(.rv):not(.ky)");
+    var kyb = lis[i].querySelector(".mu.ky"); if(kyb) kyb.classList.toggle("off", !!(s && s.key));
+    if(mm) mm.classList.toggle("off", !!(s && s.mute));
+    var vv = lis[i].querySelector(".mu.vi");
+    if(vv) vv.classList.toggle("off", !!(s && s.vmute));
+    var up = lis[i].querySelector(".mv.up"), dn = lis[i].querySelector(".mv.dn");
+    if(up) up.style.visibility = (i === 0) ? "hidden" : "visible";
+    if(dn) dn.style.visibility = (i === NS-1) ? "hidden" : "visible";
+  }
+  var ready = loaded().length >= 2 || loaded().some(function(k){ return slots[k].kind === "photo" && slots[k].photos.length > 1; });
+  $("empty").style.display = ready ? "none" : "flex";
+  $("btn-gen").disabled = !ready;
+  $("btn-live").disabled = !ready;
+  $("btn-sess").disabled = !ready;
+
+}
+
+$("btn-resetall").addEventListener("click", function(){
+  panels.forEach(function(pp){ resetPanel(pp); });
+  for(var k=0;k<NS;k++){
+    var sl = slots[k];
+    if(sl && !sl.pending){ sl.colors = []; sl.colAmt = 0; sl.blend = "difference"; sl.spd = 1;
+      sl.mute = false; sl.vmute = false; sl.rev = false; sl.key = false; sl.keyT = 70; }
+  }
+  applySpeed(); refreshColUI(); refreshSpdUI(); renderSlots(); applyAudio();
+  if(!playing) render();
+});
+
+$("btn-clear").addEventListener("click", function(){
+  stop();
+  slots.forEach(function(s){
+    if(!s || s.pending) return;
+    s.el.pause();
+    try { if(s.gain) s.gain.disconnect(); if(s.src) s.src.disconnect(); } catch(err){}
+    s.el.remove(); if(s.url) URL.revokeObjectURL(s.url);
+    if(s.cache) s.cache.forEach(function(b){ try { if(b.close) b.close(); } catch(e){} });
+  });
+  slots = [null,null,null,null,null]; segs = [];
+  renderSlots(); drawWave();
+  live = false; cur = null; log = [];
+  ["btn-play","btn-loop","btn-freeze","btn-home","btn-rec","btn-recipe"].forEach(function(b){ $(b).disabled = true; });
+  $("ro-seed").textContent = $("ro-count").textContent = $("ro-total").textContent = "—";
+  $("recipe").classList.remove("open");
+});
+
+// ---- つまみ ----
+function fpsLabel(v){ return v >= 30 ? "そのまま" : v + " fps"; }
+function syncSliders(){
+  $("v-fps0").textContent = fpsLabel(+$("s-fps0").value);
+  $("v-fps1").textContent = fpsLabel(+$("s-fps1").value);
+  $("v-int").textContent  = (+$("s-int").value).toFixed(2);
+  $("v-rmin").textContent = (+$("s-rmin").value).toFixed(2);
+  $("v-rmax").textContent = (+$("s-rmax").value).toFixed(2);
+  $("v-base").textContent = (+$("s-base").value).toFixed(2);
+  $("v-stab").textContent = (+$("s-stab").value).toFixed(2);
+  $("v-len").textContent  = $("s-len").value;
+  $("v-vol").textContent  = $("s-vol").value;
+  $("v-tsize").textContent = $("s-tsize").value;
+  $("v-tpos").textContent  = $("s-tpos").value;
+  $("v-trot").textContent  = $("s-trot").value;
+  $("v-tmove").textContent = $("s-tmove").value;
+  $("v-trail").textContent = $("s-trail").value;
+  $("v-col").textContent   = $("s-col").value;
+  $("v-cst").textContent   = $("s-cst").value;
+  $("v-cres").textContent  = $("s-cres").value;
+  $("v-pre").textContent   = (+$("s-pre").value).toFixed(1).replace(/\.0$/,"");
+
+  $("v-flip").textContent  = $("s-flip").value;
+  $("v-rint").textContent  = (+$("s-rint").value).toFixed(2);
+  $("v-rstep").textContent = $("s-rstep").value;
+  $("v-mask").textContent  = $("s-mask").value;
+  $("v-msize").textContent = $("s-msize").value;
+  $("v-mrough").textContent= $("s-mrough").value;
+  $("v-mcplx").textContent = $("s-mcplx").value;
+  $("v-wob").textContent   = $("s-wob").value;
+  $("v-wobp").textContent  = (+$("s-wobp").value).toFixed(1).replace(/\.0$/,"");
+  syncStepMarks();
+}
+function markStale(){
+  if(live || !segs.length) return;
+  $("btn-gen").classList.add("stale");
+  $("ro-stale").textContent = "設定が変わった。生成を押す。";
+}
+["s-trail","s-col","s-msize","s-mrough","s-mcplx","s-cst","s-cres","s-pre","s-rint","s-rstep"].forEach(function(id){
+  $(id).addEventListener("input", function(){ syncSliders(); });
+});
+["s-wob","s-wobp"].forEach(function(id){
+  $(id).addEventListener("input", function(){ syncSliders(); markStale(); });
+});
+// 変形・反転・ちぎりは、動かした瞬間に今の切り替えから効かせる（生成し直さんでええ）
+var rbT = 0;
+["s-tsize","s-tpos","s-trot","s-tmove","s-flip","s-mask"].forEach(function(id){
+  $(id).addEventListener("input", function(){ syncSliders(); clearTimeout(rbT); rbT = setTimeout(function(){ if(typeof rebake === "function") rebake(); if(!playing) render(); }, 60); });
+});
+["s-int","s-rmin","s-rmax","s-base","s-stab","s-len"].forEach(function(id){
+  $(id).addEventListener("input", function(){
+    markStale();
+    if(id==="s-rmin" && +$("s-rmin").value > +$("s-rmax").value-0.05)
+      $("s-rmax").value = Math.min(4, +$("s-rmin").value + 0.05).toFixed(2);
+    if(id==="s-rmax" && +$("s-rmax").value < +$("s-rmin").value+0.05)
+      $("s-rmin").value = Math.max(0.03, +$("s-rmax").value - 0.05).toFixed(2);
+    syncSliders();
+  });
+});
+$("s-vol").addEventListener("input", function(){ syncSliders(); applyAudio(); });
+["s-fps0","s-fps1"].forEach(function(id){
+  $(id).addEventListener("input", function(){ syncSliders(); holds.forEach(function(h){ h.slot = -1; }); });
+});
+
+var STEP_INT = [0.03,0.05,0.08,0.12,0.17,0.25,0.35,0.5,0.8,1.2];
+var STEP_FPS = [30,24,20,15,12,10,8,6,4,3];
+var STEP_PAIRS = [["st-int","s-int"],["st-fps0","s-fps0"],["st-fps1","s-fps1"]];
+function makeSteps(cid, sid, values, lab){
+  var c = $(cid);
+  values.forEach(function(v){
+    var b = document.createElement("button");
+    b.type = "button"; b.textContent = lab(v); b.dataset.v = v;
+    b.addEventListener("click", function(e){
+      e.preventDefault();
+      $(sid).value = v;
+      $(sid).dispatchEvent(new Event("input", { bubbles:true }));
+    });
+    c.appendChild(b);
+  });
+}
+function syncStepMarks(){
+  STEP_PAIRS.forEach(function(pr){
+    var c = $(pr[0]); if(!c) return;
+    var val = +$(pr[1]).value;
+    Array.prototype.forEach.call(c.children, function(b){
+      b.classList.toggle("on", Math.abs(+b.dataset.v - val) < 0.0005);
+    });
+  });
+}
+makeSteps("st-int",  "s-int",  STEP_INT, function(v){ return v.toFixed(2).replace(/^0/,""); });
+makeSteps("st-fps0", "s-fps0", STEP_FPS, function(v){ return v >= 30 ? "生" : v; });
+makeSteps("st-fps1", "s-fps1", STEP_FPS, function(v){ return v >= 30 ? "生" : v; });
+syncSliders();
+
+function segClick(wrapId, cb){
+  $(wrapId).addEventListener("click", function(e){
+    var b = e.target.closest("button"); if(!b) return;
+    Array.prototype.slice.call(this.children).forEach(function(x){ x.classList.remove("on"); });
+    b.classList.add("on"); cb(b.dataset.v);
+  });
+}
+segClick("seg-mode", function(v){
+  if(v !== "csv") lastAdlib = v;
+  mode = v;
+  if(!csvMade) markStale();   // CSVの台本を流してる間は、押した瞬間にアドリブ⇄CSVが切り替わる（生成し直さない）
+  $("p-even").classList.toggle("hide", v!=="even");
+  $("p-rand").classList.toggle("hide", v!=="rand");
+  $("p-skew").classList.toggle("hide", v!=="skew");
+  $("p-csv").classList.toggle("hide", v!=="csv");
+});
+segClick("seg-audio", function(v){ audio = v; applyAudio(); });
+segClick("seg-tfx", function(v){ tfx = v; markStale(); });
+segClick("seg-order", function(v){ order = v; markStale(); });
+segClick("seg-colslot", function(v){ colSlot = +v; refreshColUI(); });
+segClick("seg-spin", function(v){ spinDir = v; markStale(); });
+segClick("seg-roll", function(v){ rollDir = v; if(!playing) render(); });
+segClick("seg-spdslot", function(v){ spdSlot = +v; refreshSpdUI(); });
+segClick("seg-backw", function(v){ backWhich = v; if(!playing) render(); });
+segClick("seg-collide", function(v){ collide = v; prevB = null; if(!playing) render(); });
+
+function readParams(){
+  return { csens:+$("s-csens").value, cpm:+$("s-cpm").value, cfrom:+$("s-cfrom").value, cmap:csvMap, mode:mode, int:+$("s-int").value, rmin:+$("s-rmin").value, rmax:+$("s-rmax").value,
+           base:+$("s-base").value, stab:+$("s-stab").value, len:+$("s-len").value };
+}
+
+var order = "cycle", backWhich = "prev";
+function nextLayer(rnd, curL){
+  var all = switchable();
+  if(all.length < 2) return curL;
+  var k = all.indexOf(curL);
+  if(order === "cycle") return all[(k + 1 + all.length) % all.length];
+  if(order === "back")  return all[(k - 1 + all.length) % all.length];
+  var b = all.filter(function(x){ return x !== curL; });
+  return b[Math.floor(rnd() * b.length) % b.length];
+}
+
+// ---- 生成 ----
+// ---- CSV（銀河の楽器の観測記録を、切り替えの台本として読む） ----
+var adSeg = null, adLong = true, lastAdlib = "even";
+// A キー：CSVの台本 ⇄ アドリブ（最後に選んだ一定・ランダム・偏り）
+document.addEventListener("keydown", function(e){
+  if(e.code !== "KeyA" || e.repeat || e.metaKey || e.ctrlKey) return;
+  var t = e.target; if(t && /INPUT|TEXTAREA|SELECT/.test(t.tagName) && t.type !== "range") return;
+  if(!csvMade) return;
+  var b = $("seg-mode").querySelector('button[data-v="' + (mode === "csv" ? lastAdlib : "csv") + '"]'); if(b) b.click();
+});
+var csvData = null, csvMap = "rare", csvMade = false;
+segClick("seg-csvmap", function(v){ csvMap = v; $("f-csens").classList.toggle("hide", v !== "rare"); markStale(); });
+$("s-csens").addEventListener("input", function(){ $("v-csens").textContent = $("s-csens").value; markStale(); });
+$("s-cfrom").addEventListener("input", function(){ $("v-cfrom").textContent = $("s-cfrom").value; markStale(); });
+// 速さはその場で効かせる：できた台本の時間を伸び縮みさせ、今いるカウントは動かさない（生成し直さんでええ）
+$("s-cpm").addEventListener("input", function(){
+  var nv = +$("s-cpm").value; $("v-cpm").textContent = nv;
+  if(!csvMade || live || !segs.length || !params || !params.cpm){ return; }
+  var k = params.cpm / nv; if(k === 1) return;
+  var now = playing ? (performance.now() - t0)/1000 : curPos, cur0 = (now % totalLen);
+  segs.forEach(function(f){ f.t *= k; f.dur *= k; });
+  totalLen *= k; params.cpm = nv;
+  if(playing) t0 = performance.now() - cur0 * k * 1000;
+  curPos = cur0 * k; si = -1;
+  $("ro-total").textContent = fmt(totalLen);
+  drawWave();
+});
+function parseCSV(text){
+  var rows = [], row = [], f = "", q = false;
+  for(var i = 0; i < text.length; i++){
+    var c = text[i];
+    if(q){ if(c === '"'){ if(text[i+1] === '"'){ f += '"'; i++; } else q = false; } else f += c; }
+    else if(c === '"') q = true;
+    else if(c === ","){ row.push(f); f = ""; }
+    else if(c === "\n" || c === "\r"){ if(c === "\r" && text[i+1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if(f !== "" || row.length){ row.push(f); rows.push(row); }
+  return rows;
+}
+$("csvinput").addEventListener("change", function(e){
+  var f = e.target.files && e.target.files[0]; e.target.value = "";
+  if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){
+    var rows = parseCSV(String(rd.result).replace(/^﻿/, ""));
+    var hd = rows[0] || [], col = function(nm){ return hd.indexOf(nm); };
+    var cN = col("カウント"), cS = col("強く鳴った"), cSo = col("ひとりで鳴った"), cSh = col("衝突でずれた"), cF = col("凍結中"), cB = col("第3の拍 誕生"), cW = col("世界");
+    if(cN < 0 || cS < 0){ alert("銀河の楽器のCSVやない（「カウント」「強く鳴った」の列がない）。"); return; }
+    var w0 = null, data = [], lanes = [], freq = {};
+    rows.slice(1).forEach(function(r){
+      var n = parseInt(r[cN], 10); if(!isFinite(n)) return;
+      if(cW >= 0){ if(w0 === null) w0 = r[cW]; if(r[cW] !== w0) return; }
+      var st = (r[cS] || "").split("／").filter(Boolean);
+      st.forEach(function(x){ if(!(x in freq)){ freq[x] = 0; lanes.push(x); } freq[x]++; });
+      data.push({ n:n, strong:st, solo:cSo >= 0 ? r[cSo] : "", shift:cSh >= 0 ? r[cSh] : "", frozen:cF >= 0 && r[cF] === "1", born:cB >= 0 && !!r[cB] });
+    });
+    if(!data.length){ alert("CSVにカウントの行がない。"); return; }
+    var lastAt = {}, gp = {}; data.forEach(function(d, q){ d.strong.forEach(function(x){ if(lastAt[x] !== undefined) (gp[x] = gp[x] || []).push(q - lastAt[x]); lastAt[x] = q; }); });
+    var p90 = {}; for(var x in gp){ var a = gp[x].sort(function(m,n){ return m-n; }); p90[x] = Math.max(1, a[Math.floor(a.length*.9)]); }
+    csvData = { name:f.name, rows:data, lanes:lanes, freq:freq, p90:p90 };
+    var fz = data.filter(function(d){ return d.frozen; }).length, sh = data.filter(function(d){ return d.shift; }).length, bo = data.filter(function(d){ return d.born; }).length;
+    $("csv-info").textContent = f.name + "：" + data.length + "カウント・" + lanes.length + "レーン・凍結" + Math.round(fz/data.length*100) + "%・衝突" + sh + "・第3の拍" + bo;
+    $("s-cfrom").max = data.length; if(+$("s-cfrom").value > data.length) $("s-cfrom").value = 1; $("v-cfrom").textContent = $("s-cfrom").value;
+    var b = $("seg-mode").querySelector('button[data-v="csv"]'); if(b && mode !== "csv") b.click();
+    markStale();
+  };
+  rd.readAsText(f, "utf-8");
+});
+// 一カウント＝60/速さ 秒。何も変わらんカウントは前の区間を伸ばす。
+//  凍結中：切り替えない（その場で固まる）／衝突：その一カウントだけ反転して光り、必ず切り替わる／第3の拍の誕生：その一カウントだけちぎれる
+//  レーンごと：レーンを層に順に振り、そのカウントで一番の者（衝突した者 → ひとりで鳴った者 → 強く鳴った中で一番めずらしい者）の層が前に出る。写真の層ではレーンごとに自分の写真の列を持つ
+//  鳴るたびに次：誰かが強く鳴ったら次の層へ。写真の層は次の一枚へ
+function buildCsv(sd, p){
+  var rnd = mulberry32(sd), out = [], all = loaded();
+  if(!csvData || !all.length) return out;
+  var dt = 60 / Math.max(1, p.cpm), D = csvData.rows.slice(Math.max(0, p.cfrom - 1));
+  var laneLayer = {}, laneSub = {}, perLayer = {}, occ = {}, ptr = {};
+  csvData.lanes.forEach(function(nm, j){ var L = all[j % all.length]; laneLayer[nm] = L; perLayer[L] = perLayer[L] || 0; laneSub[nm] = perLayer[L]++; occ[nm] = 0; });
+  var layer = all[0], pics = {}, brk = true;
+  all.forEach(function(k){ if(slots[k].kind === "photo"){ pics[k] = 0; ptr[k] = 0; } });
+  function nPh(k){ return slots[k].kind === "photo" ? slots[k].photos.length : 0; }
+  // 目立つ時だけ：楽器で「派手に光る」のと同じ決め方。めったに鳴らんレーン（全体の5%以上は0、1%以下で最大）と、
+  //   そのレーンにしては久しぶり（間の長いほう1割のさらに2倍を超えると立ち上がり、6倍で最大）の大きいほうが、敏感さで決まる線を越えた時だけ切り替える
+  var thr = 0.95 - 0.9 * (p.csens / 100), lastQ = {}, NR = csvData.rows.length;
+  csvData.rows.slice(0, Math.max(0, p.cfrom - 1)).forEach(function(r, q){ r.strong.forEach(function(x){ lastQ[x] = q; }); });
+  function score(x, q){ var rr = csvData.freq[x] / NR, rk = Math.max(0, Math.min(1, Math.log(0.05 / rr) / Math.log(5)));
+    var g = (lastQ[x] === undefined) ? null : q - lastQ[x], gs = (!g) ? 0 : Math.max(0, Math.min(1, Math.log(g / (2 * (csvData.p90[x] || 8))) / Math.log(3)));
+    return Math.max(0.5 * rk * rk, gs); }
+  D.forEach(function(r, q){
+    var t = q * dt, change = false, fx = null, mk = null, nl = layer, qa = q + Math.max(0, p.cfrom - 1);
+    var frzEdge = q > 0 && !!D[q-1].frozen !== !!r.frozen; if(frzEdge) change = true;
+    var best = null, bs = 0;
+    if(p.cmap === "rare"){ r.strong.forEach(function(x){ var sc = score(x, qa); if(sc > bs){ bs = sc; best = x; } }); }
+    r.strong.forEach(function(x){ lastQ[x] = qa; });
+    if(!r.frozen){
+      if(p.cmap === "rare"){
+        var who2 = (r.shift && laneLayer[r.shift] !== undefined) ? r.shift : (bs > thr ? best : null);
+        if(who2){ nl = laneLayer[who2]; var N3 = nPh(nl);
+          if(N3){ pics[nl] = (laneSub[who2] + perLayer[nl] * occ[who2]) % N3; }
+          occ[who2]++; change = true; }
+      } else if(p.cmap === "lane"){
+        var who = (r.shift && laneLayer[r.shift] !== undefined) ? r.shift : (r.solo && laneLayer[r.solo] !== undefined) ? r.solo : null;
+        if(!who && r.strong.length){ who = r.strong.slice().sort(function(a,b){ return csvData.freq[a] - csvData.freq[b]; })[0]; }
+        if(who){ nl = laneLayer[who]; var N = nPh(nl);
+          if(N){ pics[nl] = (laneSub[who] + perLayer[nl] * occ[who]) % N; }
+          occ[who]++; change = (nl !== layer) || !!N; }
+      } else if(r.strong.length || r.shift){
+        nl = all[(all.indexOf(layer) + 1) % all.length]; var N2 = nPh(nl);
+        if(N2){ ptr[nl] = (ptr[nl] + 1) % N2; pics[nl] = ptr[nl]; }
+        change = true;
+      }
+    }
+    if(r.shift){ fx = { h:false, v:false, neg:true }; change = true; }
+    if(r.born){ mk = Math.floor(rnd() * 1e9); change = true; }
+    var last = out[out.length - 1];
+    if(change || brk || !last){
+      out.push({ layer:nl, t:t, dur:dt, n:r.n, tf:mkTF(rnd, nl), fx:fx || mkFX(rnd), col:mkCol(rnd, nl), mask:(mk !== null ? mk : mkMask(rnd)), pics:Object.assign({}, pics),
+                 evfx:!!fx, evmask:mk !== null, big:!!(fx || mk !== null || frzEdge || (p.cmap === "rare" && bs > 0.8)) });
+      brk = !!(fx || mk !== null);   // 光った一カウントの次は必ず区切る
+    } else last.dur += dt;
+    layer = nl;
+  });
+  return out;
+}
+function build(sd, p){
+  if(p.mode === "csv") return buildCsv(sd, p);
+  var rnd = mulberry32(sd), out = [], t = 0, guard = 0;
+  var all = loaded();
+  var layer = all.length ? all[0] : 0, longOne = true;
+  while(t < p.len && guard++ < 20000){
+    var d;
+    if(p.mode === "even"){
+      d = p.int;
+    } else if(p.mode === "rand"){
+      d = p.rmin + (p.rmax - p.rmin) * rnd();
+    } else {
+      d = longOne ? p.base * (0.5 + rnd()) : p.stab * (0.4 + rnd()*1.2);
+    }
+    d = wobble(d, t);
+    if(t + d > p.len) d = p.len - t;
+    if(d < 0.02) break;
+    out.push({ layer:layer, t:t, dur:d, tf:mkTF(rnd, layer), fx:mkFX(rnd), col:mkCol(rnd, layer), mask:mkMask(rnd) });
+    t += d;
+    layer = nextLayer(rnd, layer);
+    if(rnd() < 0.5) longOne = !longOne;   // たまに続けて、層と長短が噛み合わんように
+  }
+  return out;
+}
+
+// ---- 明滅止め（地だけ流す） ----
+var frozen = false;
+$("btn-freeze").addEventListener("click", function(){
+  frozen = !frozen;
+  $("btn-freeze").classList.toggle("act", frozen);
+  $("btn-freeze").textContent = frozen ? "明滅もどす" : "明滅止め";
+  if(frozen) $("ro-layer").textContent = "層" + (activeLayer+1) + "（明滅止め）";
+  applyAudio();
+  if(!playing) render();
+});
+
+// ---- 演奏（つまみをその場で反映） ----
+var live = false, cur = null, log = [];
+
+function wobble(d, t){
+  var w = +$("s-wob").value/100;
+  if(!w) return d;
+  var per = +$("s-wobp").value || 6;
+  return Math.max(0.02, d * (1 + w*0.9*Math.sin(2*Math.PI*t/per)));
+}
+var longTurn = true;
+function nextDur(longOne, at){
+  var d;
+  if(mode === "even")      d = +$("s-int").value;
+  else if(mode === "rand") d = +$("s-rmin").value + (+$("s-rmax").value - +$("s-rmin").value) * Math.random();
+  else                     d = longOne ? (+$("s-base").value)*(0.5+Math.random())
+                                       : (+$("s-stab").value)*(0.4+Math.random()*1.2);
+  return Math.max(0.02, wobble(d, at || 0));
+}
+
+$("btn-live").addEventListener("click", function(){
+  if(loaded().length < 2) return;
+  stop();
+  live = true; log = []; segs = []; seed = 0; params = readParams();
+  cur = { layer:(loaded()[0]||0), t:0, dur:nextDur(true), tf:mkTF(Math.random, 0), fx:mkFX(Math.random), col:mkCol(Math.random, 0), mask:mkMask(Math.random) };
+  $("btn-gen").classList.remove("stale");
+  $("ro-stale").textContent = "";
+  $("btn-live").classList.add("act"); $("btn-gen").classList.remove("act");
+  $("ro-seed").textContent = "演奏";
+  $("ro-count").textContent = "0";
+  $("ro-total").textContent = "—";
+  ["btn-play","btn-loop","btn-freeze","btn-home","btn-rec","btn-recipe"].forEach(function(b){ $(b).disabled = false; });
+  play();
+});
+
+$("btn-home").addEventListener("click", function(){
+  var wasPlaying = playing;
+  stop();
+  slots.forEach(function(s){ if(s && !s.pending) try { s.el.currentTime = 0; } catch(e){} });
+  if(live){ log = []; cur = { layer:(loaded()[0]||0), t:0, dur:nextDur(true), tf:mkTF(Math.random, 0), fx:mkFX(Math.random), col:mkCol(Math.random, 0), mask:mkMask(Math.random) }; }
+  si = -1;
+  if(wasPlaying) play();
+  else { $("ro-pos").textContent = fmt(0); $("head").setAttribute("x1",0); $("head").setAttribute("x2",0); }
+});
+
+$("btn-gen").addEventListener("click", function(){
+  stop();
+  live = false; cur = null; log = [];
+  seed = Math.floor(Math.random()*1e9);
+  params = readParams();
+  if(params.mode === "csv" && !csvData){ alert("先に「CSVを読む」で銀河の楽器のCSVを入れる。"); return; }
+  segs = build(seed, params);
+  csvMade = params.mode === "csv";
+  totalLen = segs.length ? segs[segs.length-1].t + segs[segs.length-1].dur : 0;
+  $("btn-gen").classList.add("act"); $("btn-live").classList.remove("act");
+  $("btn-gen").classList.remove("stale");
+  $("ro-stale").textContent = "";
+  $("ro-seed").textContent = seed;
+  $("ro-count").textContent = segs.length;
+  $("ro-total").textContent = fmt(totalLen);
+  ["btn-play","btn-loop","btn-freeze","btn-home","btn-rec","btn-recipe"].forEach(function(b){ $(b).disabled = false; });
+  drawWave();
+  if($("recipe").classList.contains("open")) fillRecipe();
+  play();
+});
+
+// ---- 方形波 ----
+var HI = 12, LO = 46;
+function laneY(layer){ return LO - (layer/(NS-1)) * (LO-HI); }
+function drawWave(){
+  var poly = $("poly");
+  if(!segs.length){ poly.setAttribute("points",""); $("head").style.display="none"; return; }
+  var pts = [];
+  segs.forEach(function(s){
+    var x1 = s.t/totalLen*1000, x2 = (s.t+s.dur)/totalLen*1000;
+    var y = laneY(s.layer);
+    pts.push(x1+","+y, x2+","+y);
+  });
+  poly.setAttribute("points", pts.join(" "));
+}
+
+var WIN = 20;   // 演奏中に見せる直近の秒数
+function drawWaveLive(pos){
+  var poly = $("poly");
+  var t0w = Math.max(0, pos - WIN), span = pos - t0w || 1;
+  var pts = [], i;
+  for(i = log.length-1; i >= 0; i--){ if(log[i].t + log[i].dur < t0w) break; }
+  for(i = Math.max(0, i); i < log.length; i++) pushSeg(pts, log[i], t0w, span);
+  if(cur) pushSeg(pts, { layer:cur.layer, t:cur.t, dur:Math.max(0, pos - cur.t) }, t0w, span);
+  poly.setAttribute("points", pts.join(" "));
+}
+function pushSeg(pts, s, t0w, span){
+  var x1 = (s.t - t0w)/span*1000, x2 = (s.t + s.dur - t0w)/span*1000;
+  if(x2 < 0) return;
+  var y = laneY(s.layer);
+  pts.push(Math.max(0,x1)+","+y, Math.min(1000,x2)+","+y);
+}
+
+// ---- 描画（コマ落としを層ごとに掛ける） ----
+var view = $("view"), vctx = view.getContext("2d", { alpha:false });
+var holds = []; for(var _i=0;_i<NS;_i++) holds.push(mkHold());
+var activeLayer = 0;
+
+var PALETTE = [["蛍光ピンク","#FF2D95"],["蛍光グリーン","#39FF14"],["蛍光イエロー","#F6FF00"],["蛍光オレンジ","#FF6A00"],["シアン","#00E5FF"],["水色","#7FC8F8"],["ピンク","#FFA8C5"],["青","#1B3FD8"],["紫","#7B2FD6"],["赤","#E01B12"],["金","#C9A227"],["銀","#B8BCC0"],["白","#FFFFFF"],["灰","#808080"],["黒","#000000"]];
+var colSlot = 0;                  // いま編集してる層
+
+function slotCol(k){
+  var s = slots[k];
+  if(!s || s.pending) return null;
+  if(!s.colors) { s.colors = []; s.blend = "difference"; s.colAmt = 0; }
+  return s;
+}
+function refreshColUI(){
+  var s = slotCol(colSlot);
+  var set = s ? s.colors : [];
+  document.querySelectorAll("#sw-col button").forEach(function(b){
+    b.classList.toggle("on", set.indexOf(+b.dataset.c) >= 0);
+  });
+  Array.prototype.forEach.call($("sw-blend").children, function(b){
+    b.classList.toggle("on", s ? b.dataset.b === s.blend : b.dataset.b === "difference");
+  });
+  $("s-col").value = s ? (s.colAmt || 0) : 0;
+  $("v-col").textContent = $("s-col").value;
+  renderDots();
+}
+function renderDots(){
+  var lis = $("slots").children;
+  for(var k=0;k<NS;k++){
+    var d = lis[k].querySelector(".cdot"); if(!d) continue;
+    var s = slots[k];
+    var on = s && !s.pending && s.colors && s.colors.length && (s.colAmt||0) > 0;
+    d.style.background = on ? PALETTE[s.colors[0]][1] : "transparent";
+    d.style.borderStyle = on ? "solid" : "dotted";
+    d.title = on ? (s.colors.map(function(i){ return PALETTE[i][0]; }).join("・") + " / " + s.blend) : "色なし";
+  }
+}
+$("sw-col").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return;
+  var s = slotCol(colSlot); if(!s) return;
+  var i = +b.dataset.c, k = s.colors.indexOf(i);
+  if(k >= 0) s.colors.splice(k,1); else s.colors.push(i);
+  if(s.colors.length && !(s.colAmt > 0)){ s.colAmt = 50; }
+  refreshColUI();
+  if(!playing) render();
+});
+$("sw-blend").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return;
+  var s = slotCol(colSlot); if(!s) return;
+  s.blend = b.dataset.b;
+  refreshColUI();
+  if(!playing) render();
+});
+$("s-col").addEventListener("input", function(){
+  var s = slotCol(colSlot); if(!s) return;
+  s.colAmt = +$("s-col").value;
+  renderDots();
+  if(!playing) render();
+});
+
+function layerColor(k){
+  var s = slots[k];
+  if(!s || s.pending || !s.colors || !s.colors.length) return null;
+  var amt = (s.colAmt || 0)/100;
+  if(amt <= 0) return null;
+  var idx = s.colors[0];
+  if(s.colors.length > 1){
+    var f = curSeg();
+    if(f && f.layer === k && f.col !== undefined && s.colors.indexOf(f.col) >= 0) idx = f.col;
+  }
+  return { c:PALETTE[idx][1], blend:s.blend || "difference", amt:amt };
+}
+function mkCol(rnd, layer){
+  var s = slots[layer];
+  if(!s || !s.colors || !s.colors.length) return undefined;
+  return s.colors[Math.floor(rnd()*s.colors.length) % s.colors.length];
+}
+
+var tfx = "front", spinDir = "both";
+function tfOn(isFront){
+  return tfx === "both" || (tfx === "front" && isFront) || (tfx === "back" && !isFront);
+}
+function mkTF(rnd, layer){
+  var sc = +$("s-tsize").value/100, po = +$("s-tpos").value/100,
+      ro = +$("s-trot").value/100, mo = +$("s-tmove").value/100;
+  if(!sc && !po && !ro) return null;
+  function d(){
+    return {
+      s: Math.min(6, Math.max(0.05, Math.exp((rnd()*2-1) * sc * 1.6))),
+      x: (rnd()*2-1) * po * 0.45,
+      y: (rnd()*2-1) * po * 0.45,
+      r: (rnd()*2-1) * ro * Math.PI
+    };
+  }
+  var a = d(), b = a;
+  if(mo > 0){
+    var c = d();
+    b = { s:a.s+(c.s-a.s)*mo, x:a.x+(c.x-a.x)*mo, y:a.y+(c.y-a.y)*mo, r:a.r+(c.r-a.r)*mo };
+    if(spinDir !== "both"){
+      var dr = b.r - a.r;
+      if((spinDir === "cw" && dr < 0) || (spinDir === "ccw" && dr > 0)) b.r = a.r - dr;
+    }
+  }
+  return { a:a, b:b };
+}
+function mkFX(rnd){
+  var pr = +$("s-flip").value/100;
+  if(!pr || rnd() > pr) return null;
+  var r = rnd();
+  return { h:(r < 0.40), v:(r >= 0.40 && r < 0.62), neg:(r >= 0.62) };
+}
+function mkMask(rnd){
+  var pr = +$("s-mask").value/100;
+  if(!pr || rnd() > pr) return null;
+  return Math.floor(rnd() * 1e9);
+}
+function activeMask(){
+  var f = curSeg();
+  return (f && f.mask !== null && f.mask !== undefined) ? f.mask : null;
+}
+// 手でちぎった紙：性格を毎回引き、多段の裂けを重ねる
+var TSM  = [0.955,0.88,0.72,0.48,0.15];
+var TAMP = [6.5,3.4,1.8,1.0,0.55];
+function clipTorn(ctx, seed, W, H){
+  var rnd = mulberry32(seed);
+  var size  = +$("s-msize").value/100;
+  var rough = +$("s-mrough").value/100;
+  var cplx  = +$("s-mcplx").value/100;
+  var R = Math.min(W, H);
+  var base = (0.10 + size*0.70) * R;
+  var spread = 0.12 + Math.max(0, size - 0.55)*0.75;
+  var cx = 0.5*W + (rnd()*2-1)*spread*W;
+  var cy = 0.5*H + (rnd()*2-1)*spread*H;
+
+  var ch = rnd(), V, ar, rvar;
+  if(ch < 0.25){      V = 6  + Math.floor(rnd()*4); ar = 0.32 + rnd()*0.30; rvar = 0.55; }
+  else if(ch < 0.50){ V = 10 + Math.floor(rnd()*7); ar = 0.85 + rnd()*0.30; rvar = 0.20; }
+  else if(ch < 0.75){ V = 5  + Math.floor(rnd()*3); ar = 0.70 + rnd()*0.60; rvar = 0.72; }
+  else {              V = 8  + Math.floor(rnd()*6); ar = 0.55 + rnd()*0.80; rvar = 0.45; }
+  var lobe = rnd()*Math.PI*2, lobeA = rnd()*0.55;
+
+  var angs = [], rads = [], acc = rnd()*Math.PI*2, a0 = acc, i, k, q;
+  for(i=0;i<V;i++){
+    acc += (Math.PI*2/V) * (0.45 + rnd()*1.15);
+    angs.push(acc); rads.push(base*(1 - rvar*0.5 + rnd()*rvar));
+  }
+  var span = angs[V-1] - a0, verts = [];
+  for(i=0;i<V;i++){
+    var a = a0 + (angs[i]-a0)*(Math.PI*2/span);
+    var r = rads[i] * (1 + lobeA*Math.cos(a - lobe));
+    verts.push([cx + Math.cos(a)*r*ar, cy + Math.sin(a)*r/ar]);
+  }
+
+  var octN = 1 + Math.floor(cplx*4.999);
+  var fiber = R*(0.0018 + rough*0.0115);
+  var j = [0,0,0,0,0], notch = 0, ndur = 1, ndepth = 0, first = true;
+  ctx.beginPath();
+  for(i=0;i<V;i++){
+    var x1 = verts[i][0], y1 = verts[i][1];
+    var x2 = verts[(i+1)%V][0], y2 = verts[(i+1)%V][1];
+    var L = Math.hypot(x2-x1, y2-y1) || 1;
+    var M = Math.max(8, Math.round(L/(1.6 + (1-rough)*2.4)));
+    var bow = (rnd()*2-1) * L * (0.06 + cplx*0.16);
+    for(k=0;k<M;k++){
+      var t = k/M;
+      var px = x1+(x2-x1)*t, py = y1+(y2-y1)*t;
+      var dx = px-cx, dy = py-cy, d = Math.hypot(dx,dy) || 1;
+      var o = bow * Math.sin(Math.PI*t);
+      for(q=0;q<octN;q++){
+        j[q] = j[q]*TSM[q] + (rnd()*2-1)*(1-TSM[q]);
+        o += j[q]*fiber*TAMP[q]*(0.45 + cplx*0.9);
+      }
+      if(notch > 0){
+        o -= ndepth * Math.sin(Math.PI * (1 - notch/ndur));
+        notch--;
+      } else if(rnd() < 0.006 + cplx*0.020){
+        ndur = 2 + Math.floor(rnd()*(4 + cplx*14)); notch = ndur;
+        ndepth = fiber*(3 + rnd()*(6 + cplx*22));
+      }
+      var X = px + (dx/d)*o, Y = py + (dy/d)*o;
+      if(first){ ctx.moveTo(X,Y); first = false; } else ctx.lineTo(X,Y);
+    }
+  }
+  ctx.closePath();
+  ctx.clip();
+}
+function activeFX(){
+  var f = curSeg();
+  return (f && f.fx) ? f.fx : null;
+}
+function lerpTF(tf, p){
+  if(tf.a === tf.b) return tf.a;
+  p = Math.max(0, Math.min(1, p));
+  return { s:tf.a.s+(tf.b.s-tf.a.s)*p, x:tf.a.x+(tf.b.x-tf.a.x)*p,
+           y:tf.a.y+(tf.b.y-tf.a.y)*p, r:tf.a.r+(tf.b.r-tf.a.r)*p };
+}
+
+function mkHold(){
+  var c = document.createElement("canvas");
+  return { cv:c, ctx:c.getContext("2d"), slot:-1 };
+}
+function setupView(){
+  var b = slots[0] && slots[0].el;
+  var W = (b && b.videoWidth) || 1280, H = (b && b.videoHeight) || 720;
+  if(W > 1920){ H = Math.round(H * 1920/W); W = 1920; }
+  W -= W % 2; H -= H % 2;
+  if(view.width === W && view.height === H) return;
+  view.width = W; view.height = H;
+  holds.forEach(function(h){ h.cv.width = W; h.cv.height = H; h.slot = -1; });
+}
+function fpsRole(isFront){ return +$(isFront ? "s-fps0" : "s-fps1").value; }
+function blit(ctx, v){
+  var W = view.width, H = view.height;
+  ctx.clearRect(0,0,W,H);
+  if(!v || !v.videoWidth) return;
+  var r = Math.min(W/v.videoWidth, H/v.videoHeight);
+  var w = v.videoWidth*r, h = v.videoHeight*r;
+  try { ctx.drawImage(v, (W-w)/2, (H-h)/2, w, h); } catch(e){}
+}
+var rollDir = "cw";
+// 回し：自分の時計で、間隔ごとに一定角度ずつ飛ぶ
+function stepAngle(){
+  var st = +$("s-rstep").value;
+  if(!st) return 0;
+  var iv = +$("s-rint").value || 0.02;
+  var n = Math.floor(performance.now()/1000 / iv);
+  return (n % 720) * st * Math.PI/180 * (rollDir === "ccw" ? -1 : 1);
+}
+var curPos = 0, prevLayer = -1, nextLayerShown = -1;
+function backLayer(){
+  var all = switchable();
+  if(all.length < 2) return activeLayer;
+  var w = (backWhich === "next") ? nextLayerShown : prevLayer;
+  if(w >= 0 && w !== activeLayer && w !== keyLayer && slots[w] && !slots[w].pending) return w;
+  var i = all.indexOf(activeLayer);
+  return all[(i + all.length - 1) % all.length];
+}
+// ---- 抜き：G で今の先頭の層に抜きのエフェクトを掛ける／外す。[ ] で強さ（下の finishLayer） ----
+var keyLayer = null, KT = 40;
+function switchable(){ return loaded().filter(function(k){ return k !== keyLayer; }); }
+var kc = document.createElement("canvas"), kcx = kc.getContext("2d", { willReadFrequently:true });
+function drawKeyed(dest){
+  var s = slots[keyLayer]; if(!s || s.pending || s.vmute) return;
+  var W = view.width, H = view.height, v = s.el; if(!v || !v.videoWidth) return;
+  var w2 = Math.min(W, 960), h2 = Math.max(2, Math.round(w2 * H / W));
+  if(kc.width !== w2 || kc.height !== h2){ kc.width = w2; kc.height = h2; }
+  kcx.clearRect(0, 0, w2, h2);
+  var r = Math.min(w2/v.videoWidth, h2/v.videoHeight), w = v.videoWidth*r, h = v.videoHeight*r;
+  try { kcx.drawImage(v, (w2-w)/2, (h2-h)/2, w, h); } catch(e){ return; }
+  var im = kcx.getImageData(0, 0, w2, h2), d = im.data, lo = KT * 0.4;
+  for(var i = 0; i < d.length; i += 4){
+    var R = d[i], G = d[i+1], B = d[i+2], m = R > B ? R : B, k = G - m;
+    if(k > KT) d[i+3] = 0;                                                     // 緑：抜く
+    else if(k > lo){ d[i+3] = Math.round(255 * (KT - k) / (KT - lo)); d[i+1] = m; }   // 縁：半分透かして緑かぶりを消す
+    else if(k > 0) d[i+1] = m + k * 0.3;                                       // かぶり止め
+  }
+  kcx.putImageData(im, 0, 0);
+  dest.drawImage(kc, 0, 0, w2, h2, 0, 0, W, H);
+}
+function toggleKey(){
+  var sl = slots[activeLayer]; if(!sl || sl.pending) return;
+  sl.key = !sl.key; sl.keyAt = 0;
+  renderSlots();
+  $("ro-layer").textContent = "層" + (activeLayer+1) + " 抜き：" + (sl.key ? "あり（[ ] で強さ・G で外す）" : "なし");
+  if(!playing) render();
+}
+document.addEventListener("keydown", function(e){
+  if(e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  var t = e.target; if(t && /INPUT|TEXTAREA|SELECT/.test(t.tagName) && t.type !== "range") return;
+  if(e.code === "KeyG"){ e.preventDefault(); e.stopImmediatePropagation(); toggleKey(); return; }
+  if(e.code === "BracketLeft" || e.code === "BracketRight"){ var sl = slots[activeLayer]; if(!sl || !sl.key) return; e.preventDefault(); sl.keyT = Math.max(10, Math.min(220, (sl.keyT || 70) + (e.code === "BracketRight" ? 12 : -12))); $("ro-layer").textContent = "層" + (activeLayer+1) + " 抜く強さ " + Math.round(sl.keyT / 220 * 100); if(!playing) render(); }
+}, true);
+function curSeg(){
+  if(lpSeg) return lpSeg;
+  if(handSeg) return handSeg;
+  if(adSeg) return adSeg;
+  return live ? cur : ((si >= 0) ? segs[si] : null);
+}
+function activeTF(){
+  var f = curSeg();
+  if(!f || !f.tf) return null;
+  return lerpTF(f.tf, f.dur ? (curPos - f.t)/f.dur : 0);
+}
+var comp = document.createElement("canvas"), kctx = comp.getContext("2d", { alpha:false });
+
+function stepReverse(s, fps){
+  if(s.revT === undefined) s.revT = s.el.currentTime || 0;
+  s.revT -= 1 / (fps >= 30 ? 30 : fps);
+  if(s.revT < 0) s.revT += s.dur;
+  try { s.el.currentTime = s.revT; } catch(e){}
+}
+var lay = document.createElement("canvas"), lctx = lay.getContext("2d");
+var alp = document.createElement("canvas"), actxA = alp.getContext("2d");
+function drawLayer(dest, k, isFront){
+  var s = slots[k];
+  if(!s || s.pending || s.vmute) return;
+  var W = view.width, H = view.height;
+  var col = layerColor(k), kd = !!s.key;
+  var ctx = dest;
+  if(col || kd){
+    if(lay.width !== W || lay.height !== H){ lay.width = W; lay.height = H; alp.width = W; alp.height = H; }
+    lctx.setTransform(1,0,0,1,0,0); lctx.globalAlpha = 1;
+    lctx.globalCompositeOperation = "source-over";
+    lctx.clearRect(0,0,W,H);
+    ctx = lctx;
+  }
+  var h = holds[k], fps = fpsRole(isFront);
+  if(fps >= 30){ if(s.rev) stepReverse(s, fps); blit(h.ctx, s.el); }
+  else {
+    var slot = Math.floor(performance.now()/1000 * fps);
+    if(h.slot !== slot){ h.slot = slot; if(s.rev) stepReverse(s, fps); blit(h.ctx, s.el); }
+  }
+  var on = tfOn(isFront);
+  var t  = on ? activeTF() : null;
+  var fx = on ? activeFX() : null;
+  var mk = on ? activeMask() : null;
+  var roll = isFront ? stepAngle() : 0;
+  if(mk !== null){
+    ctx.save();
+    clipTorn(ctx, mk, W, H);
+  }
+  if(!t && !fx && !roll){
+    ctx.drawImage(h.cv, 0, 0);
+    if(mk !== null) ctx.restore();
+    finishLayer(dest, col, kd ? h : null, s, W, H);
+    return;
+  }
+  var sc = t ? t.s : 1, ox = t ? t.x : 0, oy = t ? t.y : 0, rt = (t ? t.r : 0) + roll;
+  ctx.save();
+  if(fx && fx.neg) ctx.filter = "invert(1)";
+  ctx.translate(W/2 + ox*W, H/2 + oy*H);
+  if(rt) ctx.rotate(rt);
+  ctx.scale(sc * (fx && fx.h ? -1 : 1), sc * (fx && fx.v ? -1 : 1));
+  ctx.drawImage(h.cv, -W/2, -H/2);
+  ctx.restore();
+  if(mk !== null) ctx.restore();
+  finishLayer(dest, col, kd ? h : null, s, W, H);
+}
+// ---- 抜き（層ごとのエフェクト）：その層の画の縁から地の色を拾い、それに近い色を雑に透かす。緑バックならきれいに抜ける ----
+var kc2 = document.createElement("canvas"), kx2 = kc2.getContext("2d", { willReadFrequently:true });
+var km = document.createElement("canvas"), kmx = km.getContext("2d");
+function keyColor(h, s, W, H){
+  var v = s.el, r = (v && v.videoWidth) ? Math.min(W/v.videoWidth, H/v.videoHeight) : 1;
+  var w = v && v.videoWidth ? v.videoWidth*r : W, hh = v && v.videoHeight ? v.videoHeight*r : H, x0 = (W-w)/2, y0 = (H-hh)/2;
+  var pts = [[.04,.04],[.96,.04],[.04,.96],[.96,.96],[.5,.03],[.03,.5],[.97,.5]], cs = [];
+  pts.forEach(function(p){ try { var d = h.ctx.getImageData(Math.floor(x0 + w*p[0]), Math.floor(y0 + hh*p[1]), 1, 1).data; if(d[3] > 0) cs.push([d[0],d[1],d[2]]); } catch(e){} });
+  if(!cs.length) return null;
+  var med = function(i){ var a = cs.map(function(c){ return c[i]; }).sort(function(x,y){ return x-y; }); return a[a.length>>1]; };
+  return [med(0), med(1), med(2)];
+}
+function finishLayer(dest, col, h, s, W, H){
+  if(h){
+    var kcN = (s.keyAt && performance.now() - s.keyAt < 400 && s.keyC) ? s.keyC : keyColor(h, s, W, H);
+    if(kcN){ s.keyC = kcN; s.keyAt = s.keyAt && performance.now() - s.keyAt < 400 ? s.keyAt : performance.now();
+      var w2 = Math.min(W, 640), h2 = Math.max(2, Math.round(w2 * H / W));
+      if(kc2.width !== w2 || kc2.height !== h2){ kc2.width = w2; kc2.height = h2; km.width = w2; km.height = h2; }
+      kx2.clearRect(0,0,w2,h2); kx2.drawImage(lay, 0, 0, w2, h2);
+      var im = kx2.getImageData(0,0,w2,h2), d = im.data, T = (s.keyT || 70), T2 = T * 1.7, kr = kcN[0], kg = kcN[1], kb = kcN[2];
+      var grn = kg > kr + 40 && kg > kb + 40;
+      for(var i = 0; i < d.length; i += 4){
+        var R = d[i], G = d[i+1], B = d[i+2], dist;
+        if(grn){ var m = R > B ? R : B; dist = (G - m > 0) ? 160 - (G - m) * 1.6 : 255; dist = Math.max(dist, Math.abs(G - kg) * .5); }
+        else dist = Math.abs(R-kr) + Math.abs(G-kg) + Math.abs(B-kb);
+        var a = dist <= T ? 0 : dist >= T2 ? 255 : Math.round(255 * (dist - T) / (T2 - T));
+        d[i] = d[i+1] = d[i+2] = 255; d[i+3] = Math.min(d[i+3], a);
+      }
+      kmx.putImageData(im, 0, 0);
+      lctx.setTransform(1,0,0,1,0,0); lctx.globalAlpha = 1;
+      lctx.globalCompositeOperation = "destination-in"; lctx.drawImage(km, 0, 0, w2, h2, 0, 0, W, H);
+      lctx.globalCompositeOperation = "source-over";
+    }
+    if(!col){ dest.drawImage(lay, 0, 0); return; }
+  }
+  tintAndFlush(dest, col, W, H);
+}
+function tintAndFlush(dest, col, W, H){
+  if(!col) return;
+  actxA.setTransform(1,0,0,1,0,0);
+  actxA.globalCompositeOperation = "source-over"; actxA.globalAlpha = 1;
+  actxA.clearRect(0,0,W,H);
+  actxA.drawImage(lay, 0, 0);
+  lctx.setTransform(1,0,0,1,0,0);
+  lctx.globalCompositeOperation = col.blend;
+  lctx.globalAlpha = col.amt;
+  lctx.fillStyle = col.c;
+  lctx.fillRect(0,0,W,H);
+  lctx.globalCompositeOperation = "destination-in";
+  lctx.globalAlpha = 1;
+  lctx.drawImage(alp, 0, 0);
+  lctx.globalCompositeOperation = "source-over";
+  dest.drawImage(lay, 0, 0);
+}
+
+// ---- 衝突（二つの層が互いを歪める） ----
+var collide = "none";
+var sA = document.createElement("canvas"), aCtx = sA.getContext("2d", { willReadFrequently:true });
+var sB = document.createElement("canvas"), bCtx = sB.getContext("2d", { willReadFrequently:true });
+var sO = document.createElement("canvas"), oCtx = sO.getContext("2d");
+var prevB = null;
+
+function drawSmall(ctx, cv, k, useTF, W2, H2){
+  if(cv.width !== W2 || cv.height !== H2){ cv.width = W2; cv.height = H2; }
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,W2,H2);
+  var s = slots[k];
+  if(!s || s.pending) return;
+  ctx.save();
+  ctx.scale(W2/view.width, H2/view.height);
+  drawLayer(ctx, k, useTF);
+  ctx.restore();
+}
+
+function renderCollide(W, H){
+  var W2 = Math.min(+$("s-cres").value, W);
+  var H2 = Math.max(2, Math.round(W2 * H / W));
+  var st = (+$("s-cst").value)/100;
+  var back = backLayer();
+
+  drawSmall(aCtx, sA, back, false, W2, H2);
+  drawSmall(bCtx, sB, activeLayer, true, W2, H2);
+  if(sO.width !== W2 || sO.height !== H2){ sO.width = W2; sO.height = H2; }
+
+  var A = aCtx.getImageData(0,0,W2,H2).data;
+  var B = bCtx.getImageData(0,0,W2,H2).data;
+  var out = oCtx.createImageData(W2,H2), O = out.data;
+  var x, y, i, o4;
+
+  if(collide === "push"){
+    var amp = st * W2 * 0.10;
+    for(y=0;y<H2;y++){
+      for(x=0;x<W2;x++){
+        i = (y*W2+x)*4;
+        var xl = (x>0?x-1:x), xr = (x<W2-1?x+1:x);
+        var yu = (y>0?y-1:y), yd = (y<H2-1?y+1:y);
+        var gl = B[(y*W2+xl)*4]+B[(y*W2+xl)*4+1]*2+B[(y*W2+xl)*4+2];
+        var gr = B[(y*W2+xr)*4]+B[(y*W2+xr)*4+1]*2+B[(y*W2+xr)*4+2];
+        var gu = B[(yu*W2+x)*4]+B[(yu*W2+x)*4+1]*2+B[(yu*W2+x)*4+2];
+        var gd = B[(yd*W2+x)*4]+B[(yd*W2+x)*4+1]*2+B[(yd*W2+x)*4+2];
+        var sx = x + ((gr-gl)/1020) * amp;
+        var sy = y + ((gd-gu)/1020) * amp;
+        sx = sx < 0 ? 0 : (sx > W2-1 ? W2-1 : sx);
+        sy = sy < 0 ? 0 : (sy > H2-1 ? H2-1 : sy);
+        o4 = ((sy|0)*W2 + (sx|0))*4;
+        O[i]=A[o4]; O[i+1]=A[o4+1]; O[i+2]=A[o4+2]; O[i+3]=255;
+      }
+    }
+  } else if(collide === "shake"){
+    var m = 0;
+    if(prevB && prevB.length === B.length){
+      for(i=0;i<B.length;i+=16){ var dv = B[i]-prevB[i]; m += dv<0?-dv:dv; }
+      m = m / (B.length/16) / 255;
+    }
+    prevB = B.slice(0);
+    var sh = m * st * W2 * 1.4;
+    for(y=0;y<H2;y++){
+      var off = Math.round(Math.sin(y*0.37 + m*90) * sh + (Math.random()*2-1) * sh * 0.35);
+      for(x=0;x<W2;x++){
+        i = (y*W2+x)*4;
+        var xs = x + off;
+        xs = xs < 0 ? 0 : (xs > W2-1 ? W2-1 : xs);
+        o4 = (y*W2 + xs)*4;
+        O[i]=A[o4]; O[i+1]=A[o4+1]; O[i+2]=A[o4+2]; O[i+3]=255;
+      }
+    }
+  } else {
+    var thr = st * 200;
+    for(i=0;i<O.length;i+=4){
+      var la = A[i]*0.30 + A[i+1]*0.59 + A[i+2]*0.11;
+      var lb = B[i]*0.30 + B[i+1]*0.59 + B[i+2]*0.11;
+      var df = la > lb ? la-lb : lb-la;
+      if(df < thr){ O[i]=0; O[i+1]=0; O[i+2]=0; }
+      else { O[i]=B[i]; O[i+1]=B[i+1]; O[i+2]=B[i+2]; }
+      O[i+3]=255;
+    }
+  }
+
+  oCtx.putImageData(out, 0, 0);
+  kctx.imageSmoothingEnabled = (W2 >= 400);
+  kctx.drawImage(sO, 0, 0, W2, H2, 0, 0, W, H);
+  kctx.imageSmoothingEnabled = true;
+}
+
+
+// ---- 事件（めったにない時刻に、数秒だけ異質なことが起きる。間隔は指数分布なので次がいつ来るか読めない） ----
+var epMode = "off", epK = { zoom:true, hold:true, burst:true }, ep = null, epNext = 0, epBurstT = 0;
+segClick("seg-ep", function(v){ epMode = v; epNext = performance.now() + epGap(); });
+$("st-epk").addEventListener("click", function(e){ var b = e.target.closest("button"); if(!b) return; b.classList.toggle("on"); epK[b.dataset.k] = b.classList.contains("on"); });
+["s-epi","s-epd"].forEach(function(id){ $(id).addEventListener("input", function(){ $("v-epi").textContent = $("s-epi").value; $("v-epd").textContent = (+$("s-epd").value).toFixed(1); }); });
+function epGap(){ return -Math.log(1 - Math.random()) * (+$("s-epi").value) * 1000; }
+function startEp(){
+  var ks = Object.keys(epK).filter(function(k){ return epK[k]; }); if(!ks.length) return;
+  var k = ks[Math.floor(Math.random() * ks.length)], d = (+$("s-epd").value) * (0.7 + 0.6 * Math.random());
+  ep = { k:k, t0:performance.now(), dur:d * 1000, z:1.6 + 1.6 * Math.random(), cx:(Math.random() - 0.5) * 0.5, cy:(Math.random() - 0.5) * 0.5, dir:Math.random() < 0.5 ? -1 : 1 };
+  $("ro-layer").textContent = "事件：" + { zoom:"大きくなる", hold:"止まる", burst:"連打", neg:"反転", spin:"回る", slow:"ゆっくり" }[k];
+}
+$("btn-epnow").addEventListener("click", function(){ startEp(); if(!playing) render(); });
+function epAmt(){ if(!ep) return 0; var q = (performance.now() - ep.t0) / ep.dur; if(q >= 1){ ep = null; return 0; }
+  var a = Math.min(1, q / 0.08), b = Math.min(1, (1 - q) / 0.15); return Math.min(a, b); }   // すっと入って、少し残して抜ける
+function epHolding(){ return !!(ep && (ep.k === "hold" || ep.k === "slow") && epAmt() > 0); }
+setInterval(function(){
+  if(!playing) return;
+  var now = performance.now();
+  if(epMode === "on" && !ep && now >= epNext){ startEp(); epNext = now + (ep ? ep.dur : 0) + epGap(); }
+  if(ep && epAmt() > 0){
+    $("ro-layer").textContent = "事件：" + { zoom:"大きくなる", hold:"止まる", burst:"連打", neg:"反転", spin:"回る", slow:"ゆっくり" }[ep.k];
+    if(ep.k === "burst" && now >= epBurstT){ epBurstT = now + 45 + Math.random() * 40; var all = loaded(); if(all.length > 1){ var nb = all[(all.indexOf(activeLayer) + 1) % all.length]; prevLayer = activeLayer; activeLayer = nb; } var ps = slots[activeLayer]; if(ps && ps.kind === "photo") setPic(ps, ps.pic + 1 + Math.floor(Math.random() * 5)); }
+    if(ep.k === "slow"){ slots.forEach(function(sl){ if(sl && !sl.pending && sl.kind !== "photo") try { sl.el.playbackRate = Math.max(0.1, (sl.spd || 1) * 0.25); } catch(e){} }); ep.slowed = true; }
+  } else if(ep === null && window.__epSlowed !== false){ window.__epSlowed = false; applySpeed(); }
+  if(ep && ep.slowed) window.__epSlowed = true;
+}, 20);
+function epPaint(W, H){
+  var a = epAmt(); if(!a) return false;
+  vctx.save();
+  if(ep.k === "zoom" || ep.k === "spin"){
+    var z = ep.k === "zoom" ? 1 + (ep.z - 1) * a : 1 + 0.15 * a, r = ep.k === "spin" ? ep.dir * a * a * Math.PI * 1.2 * ((performance.now() - ep.t0) / ep.dur) : 0;
+    vctx.fillStyle = "#000"; vctx.fillRect(0, 0, W, H);
+    vctx.translate(W/2 - ep.cx * W * a, H/2 - ep.cy * H * a); if(r) vctx.rotate(r); vctx.scale(z, z); vctx.drawImage(comp, -W/2, -H/2);
+  } else if(ep.k === "neg"){ vctx.filter = "invert(" + a.toFixed(2) + ")"; vctx.drawImage(comp, 0, 0); }
+  else { vctx.restore(); return false; }
+  vctx.restore(); return true;
+}
+function render(){
+  var W = view.width, H = view.height;
+  if(comp.width !== W || comp.height !== H){ comp.width = W; comp.height = H; }
+  var trail = +$("s-trail").value/100;
+
+  kctx.setTransform(1,0,0,1,0,0);
+  kctx.filter = "none";
+  kctx.fillStyle = "#000"; kctx.fillRect(0,0,W,H);
+  if(collide === "none"){
+    drawLayer(kctx, backLayer(), false);   // 後ろ
+    drawLayer(kctx, activeLayer, true);    // 先頭
+  } else {
+    renderCollide(W, H);
+  }
+
+
+
+  vctx.setTransform(1,0,0,1,0,0);
+  if(epPaint(W, H)) return;
+  if(trail <= 0){
+    vctx.globalAlpha = 1;
+    vctx.drawImage(comp, 0, 0);
+  } else {
+    vctx.globalAlpha = Math.max(0.04, 1 - trail*0.96);
+    vctx.drawImage(comp, 0, 0);
+    vctx.globalAlpha = 1;
+  }
+}
+
+// ---- 再生 ----
+function show(i){
+  if(frozen || epHolding()){ applyAudio(); return; }
+  if(keyLayer !== null && i === keyLayer){ var sw = switchable(); if(!sw.length) return; i = sw.indexOf(activeLayer) >= 0 ? nextLayer(Math.random, activeLayer) : sw[0]; }
+  if(i !== activeLayer){ prevLayer = activeLayer; activeLayer = i;
+    var ps = slots[i], f0 = curSeg();
+    if(ps && ps.kind === "photo" && !(f0 && f0.pics)) setPic(ps, ps.pic + 1);   // CSVで決まってへん時は、出るたびに次の一枚
+  }
+  applyAudio();
+}
+// ---- 音（Web Audio。録画でも同じ音が録れるように通す） ----
+var actx = null, mixDest = null;
+function ensureAudio(){
+  if(actx) { if(actx.state === "suspended") actx.resume(); return true; }
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return false;
+    actx = new AC();
+    mixDest = actx.createMediaStreamDestination();
+    slots.forEach(function(s){ if(s && !s.pending) wireSlot(s); });
+    return true;
+  } catch(e){ actx = null; return false; }
+}
+function wireSlot(s){
+  if(!s || !actx || s.gain || s.kind === "photo") return;
+  try {
+    s.el.muted = false; s.el.volume = 1;
+    s.src = actx.createMediaElementSource(s.el);
+    s.gain = actx.createGain();
+    s.gain.gain.value = 0;
+    s.src.connect(s.gain);
+    s.gain.connect(actx.destination);
+    s.gain.connect(mixDest);
+  } catch(e){}
+}
+function applyAudio(){
+  var vol = (+$("s-vol").value)/100;
+  if(track){
+    if(track.gain){ track.el.muted = false; track.el.volume = 1;
+      track.gain.gain.setTargetAtTime(track.mute ? 0 : vol, actx.currentTime, 0.004); }
+    else { track.el.volume = vol; track.el.muted = !!track.mute; }
+  }
+  var cur = activeLayer;
+  for(var k=0;k<NS;k++){
+    var s = slots[k];
+    if(!s || s.pending) continue;
+    var live = (audio === "base") ? (k === 0)
+             : (audio === "follow") ? (k === cur)
+             : true;
+    if(s.mute || s.rev) live = false;
+    if(s.gain){
+      s.el.muted = false; s.el.volume = 1;
+      s.gain.gain.setTargetAtTime(live ? vol : 0, actx.currentTime, 0.004);
+    } else {
+      s.el.volume = vol;
+      s.el.muted = !live;
+    }
+  }
+}
+
+function play(){
+  if(!live && !segs.length) return;
+  if(live && !cur) cur = { layer:(loaded()[0]||0), t:0, dur:nextDur(true), tf:mkTF(Math.random, 0), fx:mkFX(Math.random), col:mkCol(Math.random, 0), mask:mkMask(Math.random) };
+  ensureAudio();
+  slots.forEach(function(s){ if(s && !s.pending) wireSlot(s); });
+  if(track) wireSlot(track);
+  playing = true;
+  $("btn-play").textContent = "停止";
+  slots.forEach(function(s){ if(s && !s.pending && !s.rev) s.el.play().catch(function(){}); });
+  if(track){ if(csvMade && !live){ try { track.el.currentTime = 0; } catch(e){} } track.el.play().catch(function(){}); }
+  applySpeed();
+  t0 = performance.now() - (live && cur ? cur.t*1000 : 0);
+  si = -1;
+  if(live){ show(cur ? cur.layer : 0); }
+  cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(tick);
+}
+function stop(){
+  playing = false;
+  lp = null; lpSeg = null; cap = null; resume = null;
+  if($("btn-loop")) updateLoopBtn();
+  cancelAnimationFrame(rafId);
+  slots.forEach(function(s){ if(s && !s.pending) s.el.pause(); });
+  if(track) track.el.pause();
+  $("btn-play").textContent = "再生";
+  render();
+}
+$("btn-play").addEventListener("click", function(){ playing ? stop() : play(); });
+
+function tick(){
+  if(!playing) return;
+
+  if(lp){
+    var rel = (performance.now() - lp.anchor)/1000;
+    if(rel >= lp.len){ lp.anchor += lp.len*1000; rewindMedia(); rel = rel - lp.len; }
+    curPos = rel;
+    var f2 = null;
+    for(var q2=0;q2<lp.segs.length;q2++){
+      var g = lp.segs[q2];
+      if(rel >= g.t && rel < g.t + g.dur){ f2 = g; break; }
+    }
+    if(!f2) f2 = lp.segs[lp.segs.length-1];
+    if(f2){
+      var q3 = lp.segs.indexOf(f2);
+      nextLayerShown = lp.segs[(q3+1) % lp.segs.length].layer;
+      lpSeg = f2; applySegPics(f2); show(f2.layer); $("ro-layer").textContent = "層" + (f2.layer+1) + "（リピート）"; }
+    $("ro-pos").textContent = fmt(rel);
+    $("ro-dur").textContent = lp.len.toFixed(2) + "s";
+    render();
+    if(recording) $("btn-rec").textContent = "録画中";
+    rafId = requestAnimationFrame(tick);
+    return;
+  }
+  lpSeg = null;
+  if(hand){
+    // 手打ち：切り替えは打鍵だけ。時計は裏で進めて、ちぎりや変形の動きは打った瞬間から数える
+    var hp = (performance.now() - t0)/1000; curPos = hp;
+    if(handSeg) handSeg.dur = Math.max(handSeg.dur, hp - handSeg.t + 0.02);
+    $("ro-pos").textContent = fmt(hp);
+    if(recording) $("btn-rec").textContent = "録画中 " + fmt(hp) + "（押して止める）";
+    render(); rafId = requestAnimationFrame(tick); return;
+  }
+  if(cap && cap.segs.length){
+    var nowRel = (performance.now() - cap.t0)/1000;
+    var lastc = cap.segs[cap.segs.length-1];
+    lastc.dur = Math.max(0.02, nowRel - lastc.t);
+  }
+
+  var raw = (performance.now() - t0)/1000, pos;
+
+  if(live){
+    pos = raw;
+    var guard = 0;
+    while(cur && pos >= cur.t + cur.dur && guard++ < 500){
+      log.push(cur);
+      var nl = (cur.nextL !== undefined) ? cur.nextL : nextLayer(Math.random, cur.layer);
+      if(Math.random() < 0.5) longTurn = !longTurn;
+      cur = { layer:nl, t:cur.t + cur.dur, dur:nextDur(longTurn, cur.t + cur.dur), tf:mkTF(Math.random, nl), fx:mkFX(Math.random), col:mkCol(Math.random, nl), mask:mkMask(Math.random) };
+      cur.nextL = nextLayer(Math.random, nl);
+      nextLayerShown = cur.nextL;
+      show(nl);
+      if(cap) capSeg((performance.now() - cap.t0)/1000);
+      $("ro-dur").textContent = cur.dur.toFixed(2) + "s";
+      $("ro-layer").textContent = "層" + (nl+1);
+    }
+    curPos = pos;
+    if(recording) $("btn-rec").textContent = "録画中 " + fmt(pos);
+    $("ro-pos").textContent = fmt(pos);
+    $("ro-count").textContent = log.length;
+    $("ro-total").textContent = fmt(pos);
+    drawWaveLive(pos);
+    var hl = $("head");
+    hl.style.display = "block";
+    hl.setAttribute("x1", 1000); hl.setAttribute("x2", 1000);
+    render();
+    rafId = requestAnimationFrame(tick);
+    return;
+  }
+
+  if(recording){
+    // 録画は勝手に止めない。尺の終わりまで来たら頭に戻って回り続け、止めるのは手で（録画ボタンをもう一回）
+    pos = raw % totalLen;
+    $("btn-rec").textContent = "録画中 " + fmt(raw) + "（押して止める）";
+  } else {
+    pos = raw % totalLen;
+  }
+  // アドリブ：CSVの台本の時計は裏で進めたまま、手元の切り替え（一定・ランダム・偏り）で回す
+  if(csvMade && mode !== "csv"){
+    if(!adSeg || pos >= adSeg.t + adSeg.dur || pos < adSeg.t){
+      var al = nextLayer(Math.random, activeLayer);
+      if(Math.random() < 0.5) adLong = !adLong;
+      var ad = Math.min(nextDur(adLong, pos), Math.max(0.02, totalLen - pos));
+      adSeg = { layer:al, t:pos, dur:ad, tf:mkTF(Math.random, al), fx:mkFX(Math.random), col:mkCol(Math.random, al), mask:mkMask(Math.random) };
+      show(al);
+      if(cap) capSeg((performance.now() - cap.t0)/1000);
+      $("ro-dur").textContent = ad.toFixed(2) + "s";
+      $("ro-layer").textContent = "層" + (al+1) + "（アドリブ）";
+    }
+    si = -1;
+    curPos = pos;
+    $("ro-pos").textContent = fmt(pos);
+    var ha = $("head"); ha.style.display = "block"; ha.setAttribute("x1", pos/totalLen*1000); ha.setAttribute("x2", pos/totalLen*1000);
+    render();
+    rafId = requestAnimationFrame(tick);
+    return;
+  }
+  adSeg = null;
+  // 現在の区間
+  var i = si;
+  if(i < 0 || pos < segs[i].t || pos >= segs[i].t + segs[i].dur){
+    i = 0;
+    var lo = 0, hi = segs.length-1;
+    while(lo <= hi){
+      var mid = (lo+hi)>>1;
+      if(pos < segs[mid].t) hi = mid-1;
+      else if(pos >= segs[mid].t + segs[mid].dur) lo = mid+1;
+      else { i = mid; break; }
+    }
+    if(lo > hi) i = Math.max(0, Math.min(segs.length-1, lo));
+    if(i !== si){
+      si = i;
+      nextLayerShown = segs[(i+1) % segs.length] ? segs[(i+1) % segs.length].layer : segs[i].layer;
+      applySegPics(segs[i]); prefetchFrom(i + 1);
+      if(jumpMode === "csv" && segs[i].big) doJump();
+      show(segs[i].layer);
+      if(cap) capSeg((performance.now() - cap.t0)/1000);
+      $("ro-dur").textContent = segs[i].dur.toFixed(2) + "s";
+      $("ro-layer").textContent = "層" + (segs[i].layer+1);
+    }
+  }
+  curPos = pos;
+  if(csvMade && track && track.el && !track.el.paused && pos < (track.dur || 0) - 0.3 && Math.abs(track.el.currentTime - pos) > 0.15){ try { track.el.currentTime = pos; } catch(e){} }   // CSVの時は音源をカウントに合わせる
+  $("ro-pos").textContent = fmt(pos);
+  var h = $("head");
+  h.style.display = "block";
+  var x = pos/totalLen*1000;
+  h.setAttribute("x1", x); h.setAttribute("x2", x);
+  render();
+  rafId = requestAnimationFrame(tick);
+}
+
+
+
+// ---- 飛び（つまみが勝手に別の値へ跳ぶ。ランダムな時刻か、CSVの出来事の瞬間に） ----
+var JG = { tf:["s-tsize","s-tpos","s-trot","s-tmove","s-trail","s-flip"], roll:["s-rint","s-rstep"], mask:["s-mask","s-msize","s-mrough","s-mcplx"], col:["s-col"], cl:["s-cst","s-cres"], fps:["s-fps0","s-fps1"] };
+var BAKED = { "s-tsize":1, "s-tpos":1, "s-trot":1, "s-tmove":1, "s-flip":1, "s-mask":1 };   // 区間を作る時に焼き込まれるつまみ
+var jumpMode = "off", jumpG = { tf:true, mask:true, col:true }, jumpAt = 0, jumpSnap = null, lastJumpMode = "rand";
+segClick("seg-jump", function(v){
+  if(v !== "off") lastJumpMode = v;
+  if(jumpMode === "off" && v !== "off") jumpSnap = snapJ();
+  jumpMode = v; jumpAt = performance.now() + 300;
+});
+$("st-jumpg").addEventListener("click", function(e){ var b = e.target.closest("button"); if(!b) return; b.classList.toggle("on"); jumpG[b.dataset.g] = b.classList.contains("on"); });
+["s-jint","s-jamp","s-jn"].forEach(function(id){ $(id).addEventListener("input", function(){ $("v-jint").textContent = (+$("s-jint").value).toFixed(1); $("v-jamp").textContent = $("s-jamp").value; $("v-jn").textContent = $("s-jn").value; }); });
+function allJ(){ var a = []; for(var g in JG) a = a.concat(JG[g]); return a; }
+function snapJ(){ var m = {}; allJ().forEach(function(id){ m[id] = $(id).value; }); m.collide = collide; return m; }
+$("btn-junjump").addEventListener("click", function(){ if(!jumpSnap) return; var bk = false;
+  allJ().forEach(function(id){ if($(id).value !== jumpSnap[id]){ $(id).value = jumpSnap[id]; $(id).dispatchEvent(new Event("input")); if(BAKED[id]) bk = true; } });
+  var cb = $("seg-collide").querySelector('button[data-v="' + jumpSnap.collide + '"]'); if(cb && collide !== jumpSnap.collide) cb.click();
+  if(bk) rebake(); if(!playing) render(); });
+function rebake(){
+  // 焼き込み済みの変形・反転・ちぎりを、今の区間から先だけ作り直す（CSVの衝突の反転と第3の拍のちぎりは残す）
+  var from = Math.max(0, si);
+  for(var q = from; q < segs.length; q++){ var f = segs[q]; f.tf = mkTF(Math.random, f.layer); if(!f.evfx) f.fx = mkFX(Math.random); if(!f.evmask) f.mask = mkMask(Math.random); }
+  if(adSeg){ adSeg.tf = mkTF(Math.random, adSeg.layer); adSeg.fx = mkFX(Math.random); adSeg.mask = mkMask(Math.random); }
+  if(live && cur){ cur.tf = mkTF(Math.random, cur.layer); cur.fx = mkFX(Math.random); cur.mask = mkMask(Math.random); }
+  if(handSeg){ handSeg.tf = mkTF(Math.random, handSeg.layer); handSeg.fx = mkFX(Math.random); handSeg.mask = mkMask(Math.random); }
+}
+function doJump(){
+  var pool = []; for(var g in JG) if(jumpG[g]) pool = pool.concat(JG[g]);
+  if(!pool.length) return;
+  var amp = (+$("s-jamp").value) / 100, n = +$("s-jn").value, bk = false;
+  for(var i = 0; i < n && pool.length; i++){
+    var id = pool.splice(Math.floor(Math.random() * pool.length), 1)[0], el = $(id);
+    var lo = +el.min, hi = +el.max, st = +el.step || 1, v0 = +el.value;
+    var tgt = Math.random() < 0.35 ? (Math.random() < 0.5 ? lo : hi) : lo + (hi - lo) * Math.random();   // 端へも飛ぶ
+    var v = v0 + (tgt - v0) * amp; v = Math.round(v / st) * st; v = Math.max(lo, Math.min(hi, v));
+    if(String(v) === el.value) continue;
+    el.value = v; el.dispatchEvent(new Event("input"));
+    if(BAKED[id]) bk = true;
+  }
+  if(jumpG.cl && Math.random() < 0.3){ var cs = ["none","push","shake","diff"], nb = $("seg-collide").querySelector('button[data-v="' + cs[Math.floor(Math.random()*4)] + '"]'); if(nb) nb.click(); }
+  if(bk) rebake();
+  $("ro-stale").textContent = "";
+  $("btn-gen").classList.remove("stale");
+}
+setInterval(function(){
+  if(!playing || jumpMode !== "rand") return;
+  var now = performance.now();
+  if(now >= jumpAt){ doJump(); var iv = +$("s-jint").value; jumpAt = now + iv * 1000 * (0.3 + 1.4 * Math.random()); }
+}, 40);
+// J キー：ランダム ⇄ CSVの出来事
+document.addEventListener("keydown", function(e){
+  if(e.code !== "KeyJ" || e.repeat || e.metaKey || e.ctrlKey) return;
+  var t = e.target; if(t && /INPUT|TEXTAREA|SELECT/.test(t.tagName) && t.type !== "range") return;
+  var nv = jumpMode === "rand" ? "csv" : jumpMode === "csv" ? "rand" : lastJumpMode;
+  var b = $("seg-jump").querySelector('button[data-v="' + nv + '"]'); if(b) b.click();
+});
+// ---- 手打ち（キーボードを叩くたびに切り替わる。数字1〜5はその層へ、ほかの文字キーは次の層へ。最初の一打で手打ちに入り、H で自動の切り替えに戻る。長押しは離すと戻る） ----
+var hand = false, handSeg = null, handTaps = 0;
+function handTap(layer){
+  if(!playing){ if(!live && !segs.length) return; }
+  var all = loaded(); if(!all.length) return;
+  if(layer !== undefined && layer === keyLayer) return;
+  if(layer === undefined || all.indexOf(layer) < 0) layer = nextLayer(Math.random, activeLayer);
+  if(!hand){ hand = true; handTaps = 0; }
+  var now = playing ? (performance.now() - t0)/1000 : curPos;
+  handSeg = { layer:layer, t:now, dur:0.3, tf:mkTF(Math.random, layer), fx:mkFX(Math.random), col:mkCol(Math.random, layer), mask:mkMask(Math.random) };
+  if(layer === activeLayer){ var ps = slots[layer];
+    if(ps && ps.kind === "photo") setPic(ps, ps.pic + 1);
+    else if(ps && ps.el && ps.dur){   // 動画は同じ数字を叩くたびに少し先へ進む（尺の1/16、0.25〜2秒）。逆再生の層は逆向きに進む
+      var st = Math.max(0.25, Math.min(2, ps.dur / 16)), cur0 = ps.rev ? (ps.revT || 0) : (ps.el.currentTime || 0);
+      var nt = ((cur0 + (ps.rev ? -st : st)) % ps.dur + ps.dur) % ps.dur;
+      try { ps.el.currentTime = nt; } catch(err){} if(ps.rev) ps.revT = nt; if(holds[layer]) holds[layer].slot = -1;
+    } }
+  show(layer); handTaps++;
+  if(cap) capSeg((performance.now() - cap.t0)/1000);
+  $("ro-layer").textContent = "層" + (layer+1) + "（手打ち " + handTaps + "・H で自動へ）";
+  if(!playing) render();
+}
+function handOff(){
+  if(!hand) return; hand = false; handSeg = null; adSeg = null; si = -1;
+  if(csvMade && !live && totalLen){ var hp = (performance.now() - t0)/1000; t0 = performance.now() - (hp % totalLen)*1000; }
+  $("ro-layer").textContent = "自動の切り替えに戻った";
+}
+document.addEventListener("keydown", function(e){
+  if(e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  var t = e.target; if(t && /INPUT|TEXTAREA|SELECT/.test(t.tagName) && t.type !== "range") return;
+  if(e.code === "KeyH"){ if(hand){ handOff(); e.preventDefault(); } return; }
+  if(e.code === "KeyA" || e.code === "KeyJ" || e.code === "Space") return;
+  var m = /^Digit([1-5])$/.exec(e.code), isKey = /^Key[A-Z]$/.test(e.code);
+  if(!m && !isKey) return;
+  e.preventDefault();
+  var prev = activeLayer, wasHand = hand;
+  handTap(m ? +m[1] - 1 : undefined);
+  held[e.code] = { t:performance.now(), prev:prev, wasHand:wasHand };
+});
+// 長押し：押してる間だけ切り替わり、離したら元の層へ戻る（短く叩いた時は切り替えたまま）
+var held = {}, HOLD_MS = 280;
+document.addEventListener("keyup", function(e){
+  var h = held[e.code]; if(!h) return; delete held[e.code];
+  if(performance.now() - h.t < HOLD_MS) return;
+  if(!h.wasHand){ handOff(); return; }
+  handTap(h.prev);
+});
+// ---- 別窓（映像だけを別のウィンドウに出す。つまみはこっちで触る） ----
+var popWin = null, popStream = null;
+$("btn-popout").addEventListener("click", function(){
+  if(popWin && !popWin.closed){ popWin.focus(); return; }
+  if(!popStream) popStream = view.captureStream(30);
+  // いつも前面：Chrome のピクチャー・イン・ピクチャー窓を使う（他のアプリより手前に浮いたまま、大きさは自由）
+  if(window.documentPictureInPicture){
+    documentPictureInPicture.requestWindow({ width:960, height:540 }).then(function(w){ setupPop(w, true); })
+      .catch(function(){ openPlain(); });
+    return;
+  }
+  openPlain();
+});
+function openPlain(){
+  popWin = window.open("", "paragrooveat_view", "width=960,height=560");
+  if(!popWin){ alert("別窓が開かれへん。ブラウザのポップアップを許可して、もう一回押す。"); return; }
+  setupPop(popWin, false);
+}
+function setupPop(w, pip){
+  popWin = w; var d = w.document; d.title = "para grooveat — 映像";
+  d.body.innerHTML = '<video id="v" autoplay muted playsinline></video><div id="h">' + (pip ? 'いつも前面・端をつかんで大きさを変えられる・ここでもキーで叩ける' : 'ダブルクリックで全画面・ここでもキーで叩ける') + '</div>';
+  var st = d.createElement("style");
+  st.textContent = 'html,body{margin:0;height:100%;background:#000;overflow:hidden}video{width:100%;height:100%;object-fit:contain;display:block;background:#000}#h{position:fixed;left:10px;bottom:8px;color:#777;font:12px system-ui;transition:opacity 1s}';
+  d.head.appendChild(st);
+  var v = d.getElementById("v"); v.srcObject = popStream; v.play().catch(function(){});
+  if(!pip) v.addEventListener("dblclick", function(){ if(d.fullscreenElement) d.exitFullscreen(); else d.documentElement.requestFullscreen().catch(function(){}); });
+  // 別窓を触ってる時も、キー（手打ち・G・A・J・H・スペース）が本体に届くようにする
+  ["keydown","keyup"].forEach(function(tp){ d.addEventListener(tp, function(ev){
+    var ne = new KeyboardEvent(tp, { code:ev.code, key:ev.key, repeat:ev.repeat, shiftKey:ev.shiftKey, bubbles:true, cancelable:true });
+    document.dispatchEvent(ne); if(ev.code === "Space") ev.preventDefault();
+  }); });
+  setTimeout(function(){ var h = d.getElementById("h"); if(h) h.style.opacity = 0; }, 3500);
+  $("btn-popout").classList.add("act");
+  var watch = setInterval(function(){ if(!popWin || popWin.closed){ clearInterval(watch); popWin = null; $("btn-popout").classList.remove("act"); } }, 1000);
+  w.addEventListener("pagehide", function(){ popWin = null; $("btn-popout").classList.remove("act"); });
+  if(!playing) render();
+}
+// ---- 録画 ----
+var recording = false, rec = null, chunks = [];
+
+function pickMime(){
+  var c = ["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
+  for(var i=0;i<c.length;i++){ if(window.MediaRecorder && MediaRecorder.isTypeSupported(c[i])) return c[i]; }
+  return "";
+}
+
+$("btn-rec").addEventListener("click", function(){
+  if(recording){ finishRec(); return; }
+  startRec();
+});
+
+function startRec(){
+  if(loaded().length < 2 && !loaded().some(function(k){ return slots[k].kind === "photo" && slots[k].photos.length > 1; })) return;
+  if(sessOn) return;
+  if(!live && !segs.length) return;
+  if(!window.MediaRecorder){ alert("このブラウザは録画に対応してない。"); return; }
+  stop();
+  ensureAudio();
+  slots.forEach(function(s){ if(s && !s.pending) wireSlot(s); });
+
+  setupView();
+  var stream = view.captureStream(30);
+  if(mixDest){
+    mixDest.stream.getAudioTracks().forEach(function(t){ stream.addTrack(t); });
+  }
+
+  chunks = [];
+  var mime = pickMime();
+  try {
+    rec = new MediaRecorder(stream, mime ? { mimeType:mime, videoBitsPerSecond:12000000 } : undefined);
+  } catch(e){
+    try { rec = new MediaRecorder(stream); } catch(e2){ alert("録画を開始できひんかった。"); return; }
+  }
+  rec.ondataavailable = function(e){ if(e.data && e.data.size) chunks.push(e.data); };
+  rec.onstop = onRecStop;
+
+  recording = true;
+  $("btn-gen").disabled = true;
+  $("btn-live").disabled = true;
+  $("btn-play").disabled = true;
+  $("btn-sess").disabled = true;
+  $("btn-rec").textContent = "録画中（押して止める）";
+  if(live){ log = []; cur = { layer:(loaded()[0]||0), t:0, dur:nextDur(true), tf:mkTF(Math.random, 0), fx:mkFX(Math.random), col:mkCol(Math.random, 0), mask:mkMask(Math.random) }; }
+  rec.start(200); recT0 = performance.now();
+  play();
+}
+
+function finishRec(){
+  if(!recording) return;
+  recording = false;
+  stop();
+  try { if(rec && rec.state !== "inactive") rec.stop(); } catch(e){ onRecStop(); }
+  $("btn-rec").textContent = "書き出し中";
+  $("btn-rec").disabled = true;
+}
+
+function onRecStop(){
+  var blob = new Blob(chunks, { type: (rec && rec.mimeType) || "video/webm" });
+  chunks = [];
+  $("btn-gen").disabled = false;
+  $("btn-live").disabled = false;
+  $("btn-play").disabled = false;
+  $("btn-sess").disabled = false;
+  $("btn-rec").disabled = false;
+  $("btn-rec").textContent = "録画";
+  if(!blob.size) return;
+  // ブラウザの録画は長さ（尺）が空のまま書かれるので、録った時間を書き込んでから保存する
+  var ms = performance.now() - recT0;
+  var fix = (window.ysFixWebmDuration && /webm/.test(blob.type)) ? window.ysFixWebmDuration(blob, ms, { logger:false }).catch(function(){ return blob; }) : Promise.resolve(blob);
+  fix.then(function(fb){ blob = fb; lastRec = fb; saveRec(blob); });
+}
+var recT0 = 0;
+function saveRec(blob){
+  // 止めたらそのまま保存する（名前に日時を入れて、上書きされんように）
+  var d = new Date(), z = function(x){ return String(x).padStart(2,"0"); };
+  saveOut("paragrooveat_" + d.getFullYear() + z(d.getMonth()+1) + z(d.getDate()) + "_" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + ".webm", blob);
+  showRecDone();
+  var sp = $("recdone").querySelector("span"); if(sp) sp.textContent = "保存した " + (blob.size/1048576).toFixed(0) + "MB（ダウンロードに入ってる）";
+}
+
+
+function saveOut(filename, data){
+  download(filename, data);
+  return Promise.resolve(true);
+}
+
+
+// ---- 素材に音が入ってるか調べる（PCM入りの mov はブラウザが読めん） ----
+function checkAudioTracks(){
+  var lis = $("slots").children;
+  for(var k=0;k<NS;k++){
+    var s = slots[k];
+    if(!s || s.pending) continue;
+    var el = s.el, known = false, has = true;
+    if(typeof el.webkitAudioDecodedByteCount === "number"){
+      known = el.currentTime > 0.3 || el.webkitAudioDecodedByteCount > 0;
+      has = el.webkitAudioDecodedByteCount > 0;
+    } else if(typeof el.mozHasAudio === "boolean"){ known = true; has = el.mozHasAudio; }
+    if(!known) continue;
+    s.noAudio = !has;
+    var mu = lis[k].querySelector(".mu:not(.vi):not(.rv):not(.ky)");
+    if(mu){
+      mu.classList.toggle("na", !has);
+      mu.textContent = has ? "音" : "音無";
+      mu.title = has ? "" : "この素材には音が入ってへん。mov の中身が PCM やとブラウザが読めん。AAC で書き出し直すと鳴る。";
+    }
+  }
+}
+setInterval(function(){ if(playing) checkAudioTracks(); }, 1500);
+
+// ---- リピート（押した間を溜めて、離したらそこを回し続ける） ----
+var LOOP_MAX = 6;
+var lp = null, lpSeg = null, cap = null, resume = null;
+
+function snapMedia(){
+  var m = [];
+  for(var k=0;k<NS;k++){ var s = slots[k]; if(s && !s.pending) m.push({ k:k, t:s.el.currentTime }); }
+  return m;
+}
+function rewindMedia(){
+  if(!lp) return;
+  lp.media.forEach(function(m){
+    var s = slots[m.k];
+    if(s && !s.pending) try { s.el.currentTime = m.t; } catch(e){}
+  });
+  holds.forEach(function(h){ h.slot = -1; });
+}
+function capSeg(at){
+  if(!cap) return;
+  var f = handSeg || adSeg || (live ? cur : ((si >= 0) ? segs[si] : null));
+  if(!f) return;
+  cap.segs.push({ layer:f.layer, t:at, dur:0.02, tf:f.tf, fx:f.fx, col:f.col, mask:f.mask });
+}
+function loopPress(){
+  if(!playing) return;
+  if(lp){ loopRelease2(); return; }      // 2回目で解除
+  if(cap) return;
+  cap = { t0:performance.now(), segs:[], media:snapMedia() };
+  resume = live ? { live:true, cur:cur } : { live:false, pos:curPos };
+  capSeg(0);
+  updateLoopBtn();
+}
+function loopEnd(){
+  if(!cap) return;
+  var len = Math.min(LOOP_MAX, (performance.now() - cap.t0)/1000);
+  var segsC = cap.segs; cap = null;
+  if(len < 0.06 || !segsC.length){ updateLoopBtn(); return; }
+  segsC = segsC.filter(function(x){ return x.t < len; });
+  var last = segsC[segsC.length-1];
+  if(last) last.dur = Math.max(0.02, len - last.t);
+  // 溜め始めた時点の位置を掴んで、そこへ巻き戻す
+  lp = { len:len, segs:segsC, media:capMedia0.slice(), anchor:performance.now() };
+  rewindMedia();
+  updateLoopBtn();
+}
+var capMedia0 = [];
+function loopRelease2(){
+  lp = null; lpSeg = null;
+  if(resume){
+    if(resume.live){ cur = resume.cur; t0 = performance.now() - cur.t*1000; }
+    else { si = -1; t0 = performance.now() - resume.pos*1000; }
+    resume = null;
+  }
+  updateLoopBtn();
+}
+function updateLoopBtn(){
+  var b = $("btn-loop");
+  b.textContent = lp ? "リピート中" : (cap ? "溜め中" : "リピート");
+  b.classList.toggle("act", !!(lp || cap));
+}
+
+var lb = $("btn-loop");
+lb.addEventListener("mousedown", function(e){ e.preventDefault(); capMedia0 = snapMedia(); loopPress(); });
+lb.addEventListener("mouseup", loopEnd);
+lb.addEventListener("mouseleave", function(){ if(cap) loopEnd(); });
+lb.addEventListener("touchstart", function(e){ e.preventDefault(); capMedia0 = snapMedia(); loopPress(); }, {passive:false});
+lb.addEventListener("touchend", function(e){ e.preventDefault(); loopEnd(); }, {passive:false});
+
+var spaceDown = false;
+document.addEventListener("keydown", function(e){
+  if(e.code !== "Space" || e.repeat) return;
+  var t = e.target;
+  if(t && /INPUT|TEXTAREA|SELECT/.test(t.tagName) && t.type !== "range") return;
+  e.preventDefault();
+  if(spaceDown) return;
+  spaceDown = true; capMedia0 = snapMedia(); loopPress();
+});
+document.addEventListener("keyup", function(e){
+  if(e.code !== "Space") return;
+  e.preventDefault(); spaceDown = false; loopEnd();
+});
+
+// ---- 録ったものを次の層に回す ----
+var lastRec = null;
+function showRecDone(){
+  var el = $("recdone");
+  if(!lastRec){ el.classList.add("hide"); el.innerHTML = ""; return; }
+  el.classList.remove("hide");
+  el.innerHTML = '<span>録れた ' + (lastRec.size/1048576).toFixed(0) + 'MB</span>' +
+                 '<button data-r="feed">層に入れる</button>' +
+                 '<button data-r="save">もう一回保存</button>' +
+                 '<button data-r="drop">捨てる</button>';
+}
+$("recdone").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b || !lastRec) return;
+  var a = b.dataset.r;
+  if(a === "drop"){ lastRec = null; showRecDone(); return; }
+  if(a === "save"){ saveOut("paragrooveat_" + (seed || "live_" + Date.now()) + ".webm", lastRec); return; }
+  // 層に入れる：空いてる枠へ、無ければ差4を差し替え
+  var i = firstFree();
+  if(i === null) i = NS - 1;
+  var name = "録_" + new Date().toTimeString().slice(0,8).replace(/:/g,"") + ".webm";
+  var f;
+  try { f = new File([lastRec], name, { type: lastRec.type || "video/webm" }); }
+  catch(err){ f = lastRec; f.name = name; }
+  if(!slots[i]) slots[i] = { pending:true };
+  load(f, i);
+  lastRec = null; showRecDone();
+});
+
+// ---- 収集（通しで録りながら、ええところに印を打つ） ----
+var sessRec = null, sessChunks = [], sessT0 = 0, sessBytes = 0, sessOn = false;
+var sessBlob = null, sessName = "";
+var markIn = null, clips = [], pending = null;
+
+function sessInfo(){
+  var mb = (sessBytes/1048576).toFixed(0);
+  $("btn-sess").textContent = sessOn ? ("収集中 " + mb + "MB") : "収集開始";
+}
+
+function startSession(){
+  if(loaded().length < 2 && !loaded().some(function(k){ return slots[k].kind === "photo" && slots[k].photos.length > 1; })) return;
+  if(!window.MediaRecorder){ alert("このブラウザは録画に対応してない。"); return; }
+  ensureAudio();
+  slots.forEach(function(s){ if(s && !s.pending) wireSlot(s); });
+  setupView();
+  if(!playing) play();
+
+  var stream = view.captureStream(30);
+  if(mixDest) mixDest.stream.getAudioTracks().forEach(function(t){ stream.addTrack(t); });
+
+  sessChunks = []; sessBytes = 0; sessBlob = null;
+  var mime = pickMime();
+  try {
+    sessRec = new MediaRecorder(stream, mime ? { mimeType:mime, videoBitsPerSecond:8000000 } : undefined);
+  } catch(e){
+    try { sessRec = new MediaRecorder(stream); } catch(e2){ alert("収集を開始できひんかった。"); return; }
+  }
+  sessRec.ondataavailable = function(e){
+    if(e.data && e.data.size){ sessChunks.push(e.data); sessBytes += e.data.size; sessInfo(); }
+  };
+  sessRec.onstop = function(){
+    sessBlob = new Blob(sessChunks, { type:(sessRec && sessRec.mimeType) || "video/webm" });
+    sessChunks = [];
+    if(bundleWaiting){ bundleWaiting = false; doBundle(); }
+  };
+  sessRec.start(500);
+  sessT0 = performance.now();
+  sessName = "paragrooveat_session_" + Date.now();
+  sessOn = true;
+  markIn = null;
+  $("btn-mark").disabled = false;
+  $("btn-mark").textContent = "ここから";
+  $("btn-rec").disabled = true;
+  sessInfo();
+}
+
+var bundleWaiting = false;
+function stopSession(){
+  if(!sessOn) return;
+  sessOn = false;
+  try { if(sessRec && sessRec.state !== "inactive") sessRec.stop(); } catch(e){}
+  $("btn-mark").disabled = true;
+  $("btn-rec").disabled = false;
+  $("btn-sess").textContent = "収集開始";
+  $("btn-sess").classList.remove("act");
+}
+
+$("btn-sess").addEventListener("click", function(){
+  if(sessOn){ commitPending(); stopSession(); }
+  else { startSession(); $("btn-sess").classList.add("act"); }
+  renderClips();
+});
+
+$("btn-mark").addEventListener("click", function(){
+  if(!sessOn) return;
+  var now = (performance.now() - sessT0)/1000;
+  if(markIn === null){
+    markIn = Math.max(0, now - (+$("s-pre").value));
+    $("btn-mark").textContent = "ここまで";
+    $("btn-mark").classList.add("act");
+  } else {
+    commitPending();
+    pending = { a:markIn, b:Math.max(markIn + 0.1, now) };
+    markIn = null;
+    $("btn-mark").textContent = "ここから";
+    $("btn-mark").classList.remove("act");
+    renderClips();
+  }
+});
+
+function commitPending(){
+  if(pending){ clips.push(pending); pending = null; }
+}
+
+function renderClips(){
+  var pn = $("pending");
+  if(pending){
+    pn.classList.remove("hide");
+    pn.innerHTML = '<span>今の部品 ' + (pending.b-pending.a).toFixed(2) + '秒</span>' +
+                   '<button data-p="keep">残す</button><button data-p="drop">捨てる</button>';
+  } else {
+    pn.classList.add("hide"); pn.innerHTML = "";
+  }
+  var ul = $("clips");
+  ul.innerHTML = "";
+  clips.forEach(function(c, i){
+    var li = document.createElement("li");
+    li.innerHTML = '<span class="no num">' + (i+1) + '</span>' +
+                   '<span class="tm num">' + (c.b-c.a).toFixed(2) + 's  (' + c.a.toFixed(1) + '–' + c.b.toFixed(1) + ')</span>' +
+                   '<button data-i="' + i + '" data-a="up">↑</button>' +
+                   '<button data-i="' + i + '" data-a="dn">↓</button>' +
+                   '<button data-i="' + i + '" data-a="del">×</button>';
+    ul.appendChild(li);
+  });
+  $("btn-bundle").disabled = !(clips.length || pending);
+}
+
+$("pending").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return;
+  if(b.dataset.p === "keep") commitPending(); else pending = null;
+  renderClips();
+});
+
+$("clips").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return;
+  var i = +b.dataset.i, a = b.dataset.a, t;
+  if(a === "del") clips.splice(i,1);
+  else if(a === "up" && i > 0){ t = clips[i]; clips[i] = clips[i-1]; clips[i-1] = t; }
+  else if(a === "dn" && i < clips.length-1){ t = clips[i]; clips[i] = clips[i+1]; clips[i+1] = t; }
+  renderClips();
+});
+
+$("btn-bundle").addEventListener("click", function(){
+  commitPending(); renderClips();
+  if(!clips.length) return;
+  if(sessOn){ bundleWaiting = true; stopSession(); return; }
+  doBundle();
+});
+
+function cutList(){
+  var L = [];
+  L.push("para grooveat / 収集した部品  " + clips.length + "本");
+  L.push("元ファイル: " + sessName + ".webm");
+  L.push("");
+  L.push("この順に繋ぐ");
+  clips.forEach(function(c,i){
+    L.push("  " + String(i+1).padStart(2," ") + "  " +
+           c.a.toFixed(3).padStart(9," ") + " – " + c.b.toFixed(3).padStart(9," ") +
+           "   (" + (c.b-c.a).toFixed(3) + ")");
+  });
+  L.push("");
+  L.push("# ffmpeg で繋いで mp4 にする");
+  var parts = [], labels = [];
+  clips.forEach(function(c,i){
+    parts.push("[0:v]trim=start=" + c.a.toFixed(3) + ":end=" + c.b.toFixed(3) + ",setpts=PTS-STARTPTS[v" + i + "]");
+    parts.push("[0:a]atrim=start=" + c.a.toFixed(3) + ":end=" + c.b.toFixed(3) + ",asetpts=PTS-STARTPTS[a" + i + "]");
+    labels.push("[v" + i + "][a" + i + "]");
+  });
+  parts.push(labels.join("") + "concat=n=" + clips.length + ":v=1:a=1[v][a]");
+  L.push("");
+  L.push("ffmpeg -i \"" + sessName + ".webm\" \\");
+  L.push("  -filter_complex \"" + parts.join(";\n   ") + "\" \\");
+  L.push("  -map \"[v]\" -map \"[a]\" -r 30 \\");
+  L.push("  -c:v libx264 -crf 18 -pix_fmt yuv420p -c:a aac -b:a 320k \\");
+  L.push("  " + sessName + "_cut.mp4");
+  return L.join("\n");
+}
+
+async function doBundle(){
+  if(!sessBlob || !sessBlob.size){ alert("収集した映像が無い。"); return; }
+  await saveOut(sessName + ".webm", sessBlob);
+  await saveOut(sessName + "_cuts.txt", cutList());
+}
+
+// ---- レシピ ----
+var tab = "list";
+document.querySelectorAll(".tabs button").forEach(function(b){
+  b.addEventListener("click", function(){
+    document.querySelectorAll(".tabs button").forEach(function(x){ x.classList.remove("on"); });
+    b.classList.add("on"); tab = b.dataset.t; fillRecipe();
+  });
+});
+$("btn-recipe").addEventListener("click", function(){
+  $("recipe").classList.add("open"); fillRecipe();
+  $("recipe").scrollIntoView({behavior:"smooth",block:"nearest"});
+});
+$("btn-closerecipe").addEventListener("click", function(){ $("recipe").classList.remove("open"); });
+
+var MODEJP = { even:"一定", rand:"ランダム", skew:"偏り" };
+var ORDJP  = { cycle:"順に回す", rand:"抽選", back:"逆に回す" };
+var COLJP  = { push:"押しのけ", shake:"揺さぶり", diff:"差分" };
+var AUDJP  = { base:"地に固定", follow:"映像と一緒", both:"両方鳴らす" };
+
+function paramLine(){
+  if(params.mode==="even") return "間隔 " + params.int.toFixed(2) + "s";
+  if(params.mode==="rand") return "最短 " + params.rmin.toFixed(2) + "s / 最長 " + params.rmax.toFixed(2) + "s";
+  return "地 " + params.base.toFixed(2) + "s / 差し込み " + params.stab.toFixed(2) + "s";
+}
+
+function curSegs(){
+  if(!live) return segs;
+  var a = log.slice();
+  if(cur && cur.dur > 0) a.push(cur);
+  return a;
+}
+function curLen(){
+  var a = curSegs();
+  return a.length ? a[a.length-1].t + a[a.length-1].dur : 0;
+}
+function recipeList(){
+  var a = curSegs(), len = live ? curLen() : totalLen;
+  var L = [];
+  L.push("para grooveat / " + (live ? "演奏（一回性・再現不可）" : "種 " + seed));
+  L.push("切替 " + (live ? MODEJP[mode] + "（演奏中に可変）" : MODEJP[params.mode] + "  " + paramLine()));
+  L.push("音 " + AUDJP[audio] + "   尺 " + fmt(len) + "   切替回数 " + a.length);
+  L.push("並び " + ORDJP[order] + " / 後ろは " + (backWhich === "next" ? "次" : "直前"));
+  if(collide !== "none")
+    L.push("衝突  " + COLJP[collide] + " / 強さ " + $("s-cst").value +
+           " / 粗さ " + $("s-cres").value + "px   ※ffmpegには入らん（録画のみ）");
+  if(+$("s-rstep").value > 0)
+    L.push("回し  " + $("s-rint").value + "秒ごとに " + $("s-rstep").value + "度 / " +
+           (rollDir === "ccw" ? "左" : "右") + "   ※ffmpegには入らん（録画のみ）");
+  if(+$("s-mask").value > 0)
+    L.push("ちぎり  出る率 " + $("s-mask").value + "% / 大きさ " + $("s-msize").value +
+           " / 荒さ " + $("s-mrough").value + " / 複雑さ " + $("s-mcplx").value + "   ※ffmpegには入らん（録画のみ）");
+  var colLines = [];
+  for(var cq=0;cq<NS;cq++){
+    var cs = slots[cq];
+    if(cs && !cs.pending && cs.colors && cs.colors.length && (cs.colAmt||0) > 0)
+      colLines.push("  層" + (cq+1) + "  " +
+        cs.colors.map(function(i){ return PALETTE[i][0]; }).join("・") +
+        " / " + cs.blend + " / 濃さ " + cs.colAmt);
+  }
+  if(colLines.length){
+    L.push("色（層ごと）   ※ffmpegには入らん（録画のみ）");
+    colLines.forEach(function(x){ L.push(x); });
+  }
+  L.push("コマ落とし  先頭 " + fpsLabel(fpsRole(true)) + " / 後ろ " + fpsLabel(fpsRole(false)));
+  if(a.some(function(x){ return !!x.tf && tfOn(x.layer); }))
+    L.push("変形  対象 " + tfx + " / 大きさ " + $("s-tsize").value + " 位置 " + $("s-tpos").value +
+           " 回転 " + $("s-trot").value + " 動き " + $("s-tmove").value +
+           " 向き " + ({both:"両",cw:"右",ccw:"左"}[spinDir]) +
+           "   ※ffmpegには入らん（録画のみ）");
+  L.push("");
+  for(var q=0;q<NS;q++){
+    if(!slots[q] || slots[q].pending) continue;
+    L.push("  層" + (q+1) + "  " + slots[q].name + "  " + slots[q].dur.toFixed(2) + "s");
+  }
+  L.push("");
+  L.push("どの層がいつ先頭に出るか");
+  a.forEach(function(s,i){
+    var tfs = "";
+    if(s.tf && tfOn(s.layer)){
+      var A = s.tf.a, B = s.tf.b;
+      tfs = "   拡" + A.s.toFixed(2) + " 位置" + A.x.toFixed(2) + "," + A.y.toFixed(2) +
+            " 回転" + Math.round(A.r*180/Math.PI) + "°" +
+            (A === B ? "" : " → 拡" + B.s.toFixed(2) + " 位置" + B.x.toFixed(2) + "," + B.y.toFixed(2) +
+                            " 回転" + Math.round(B.r*180/Math.PI) + "°");
+    }
+    if(s.fx) tfs += "  反転" + (s.fx.h?"左右":s.fx.v?"上下":"色");
+    L.push("  層" + (s.layer+1) + "  " + s.t.toFixed(3).padStart(8," ") + " – " + (s.t+s.dur).toFixed(3).padStart(8," ") +
+           "   (" + s.dur.toFixed(3) + ")" + tfs);
+  });
+  return L.join("\n");
+}
+
+function exprFor(layer){
+  var terms = curSegs().filter(function(s){ return s.layer === layer; })
+    .map(function(s){ return "between(t," + s.t.toFixed(3) + "," + (s.t+s.dur).toFixed(3) + ")"; });
+  return terms.length ? terms.join("+") : "0";
+}
+function recipeFfmpeg(){
+  var used = [], q;
+  for(q=0;q<NS;q++) if(slots[q] && !slots[q].pending) used.push(q);
+  var idx = {}; used.forEach(function(k,n){ idx[k] = n; });
+
+  var pre = "", chain = "", vin = {};
+  used.forEach(function(k){
+    var n = idx[k], f = fpsRole(k === used[0]), lbl = "[" + n + ":v]";
+    if(f < 30){ pre += lbl + "fps=" + f + ",fps=30[b" + n + "];"; lbl = "[b" + n + "]"; }
+    vin[k] = lbl;
+  });
+
+  var curLbl = vin[0], step = 0;
+  var overs = used.filter(function(k){ return k > 0; });
+  overs.forEach(function(k, n){
+    var out = (n === overs.length-1) ? "[v]" : "[o" + (++step) + "]";
+    chain += (chain ? ";" : "") + curLbl + vin[k] + "overlay=enable='" + exprFor(k) + "'" + out;
+    curLbl = out;
+  });
+  if(!chain){ chain = curLbl + "null[v]"; }
+
+  var a = "", amap;
+  if(audio === "base"){
+    amap = '-map 0:a';
+  } else if(audio === "both"){
+    a = ";" + used.map(function(k){ return "[" + idx[k] + ":a]"; }).join("") +
+        "amix=inputs=" + used.length + ":normalize=0[a]";
+    amap = '-map "[a]"';
+  } else {
+    used.forEach(function(k){
+      var n = idx[k];
+      var e = (k === 0) ? "not(" + overs.map(function(j){ return exprFor(j); }).join("+") + ")"
+                        : exprFor(k);
+      a += ";[" + n + ":a]volume=0:enable='not(" + e + ")'[a" + n + "]";
+    });
+    a += ";" + used.map(function(k){ return "[a" + idx[k] + "]"; }).join("") +
+         "amix=inputs=" + used.length + ":normalize=0[a]";
+    amap = '-map "[a]"';
+  }
+
+  var ins = used.map(function(k){
+    return "  -stream_loop -1 -i \"" + slots[k].name + "\"";
+  }).join(" \\\n");
+
+  return "# para grooveat / " + (live ? "演奏" : "種 " + seed) + " / " + MODEJP[live ? mode : params.mode] +
+         " / 音 " + AUDJP[audio] + "\n" +
+    "# -i の並び順： " + used.map(function(k){ return k === 0 ? "地" : "差" + k; }).join(" → ") + "\n\n" +
+    "ffmpeg \\\n" + ins + " \\\n" +
+    "  -filter_complex \"" + pre + chain + a + "\" \\\n" +
+    "  -map \"[v]\" " + amap + " -r 30 -t " + (live ? curLen() : totalLen).toFixed(2) + " \\\n" +
+    "  -c:v prores_ks -profile:v 3 -c:a pcm_s16le \\\n" +
+    "  meimetsu_" + (seed || "live") + ".mov";
+}
+
+function fillRecipe(){ $("recipetext").value = (tab==="list") ? recipeList() : recipeFfmpeg(); }
+
+$("btn-copy").addEventListener("click", function(){
+  var ta = $("recipetext");
+  ta.removeAttribute("readonly"); ta.select(); ta.setSelectionRange(0,999999);
+  var ok = false;
+  try { ok = document.execCommand("copy"); } catch(e){}
+  ta.setAttribute("readonly","");
+  if(navigator.clipboard && !ok) navigator.clipboard.writeText(ta.value).catch(function(){});
+  var b = $("btn-copy"); b.textContent = "コピーした";
+  setTimeout(function(){ b.textContent = "コピー"; }, 1400);
+});
+
+function download(filename, data, type){
+  var blob = (data instanceof Blob) ? data : new Blob([data], { type: type || "text/plain;charset=utf-8" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+}
+$("btn-save").addEventListener("click", function(){
+  var ext = (tab==="list") ? "txt" : "sh";
+  download("paragrooveat_"+(seed||"live")+"."+ext, $("recipetext").value);
+});
+
+
+
+// ---- 行き先を直接指す（ラベルを押しっぱなし → 番号を選ぶ） ----
+var jumpFrom = -1, jumpHot = -1;
+function moveSlot(from, to){
+  if(from === to || from < 0 || to < 0 || from >= NS || to >= NS) return;
+  var a = slots.splice(from, 1)[0];
+  slots.splice(to, 0, a);
+  holds.forEach(function(h){ h.slot = -1; });
+  renderSlots(); refreshColUI(); refreshSpdUI(); setupView(); applySpeed(); applyAudio();
+  if(!playing) render();
+}
+function openJump(i, rect){
+  jumpFrom = i; jumpHot = -1;
+  var j = $("jump");
+  j.innerHTML = "";
+  for(var n=0;n<NS;n++){
+    var b = document.createElement("button");
+    b.type = "button"; b.textContent = String(n+1);
+    b.dataset.n = n;
+    if(n === i) b.classList.add("hot");
+    j.appendChild(b);
+  }
+  j.classList.remove("hide");
+  var w = j.offsetWidth || (NS*31), h = j.offsetHeight || 30;
+  var x = Math.min(Math.max(4, rect.left), innerWidth - w - 4);
+  var y = rect.top - h - 4;
+  if(y < 4) y = rect.bottom + 4;
+  j.style.left = x + "px";
+  j.style.top = y + "px";
+}
+function closeJump(commit){
+  var j = $("jump");
+  j.classList.add("hide");
+  if(commit && jumpHot >= 0 && jumpHot !== jumpFrom) moveSlot(jumpFrom, jumpHot);
+  jumpFrom = -1; jumpHot = -1;
+}
+$("slots").addEventListener("pointerdown", function(e){
+  var rk = e.target.closest(".rk"); if(!rk) return;
+  var li = rk.closest("li"); if(!li) return;
+  e.preventDefault(); e.stopPropagation();
+  openJump(+li.dataset.i, li.getBoundingClientRect());
+});
+document.addEventListener("pointermove", function(e){
+  if(jumpFrom < 0) return;
+  var el = document.elementFromPoint(e.clientX, e.clientY);
+  var b = el && el.closest ? el.closest("#jump button") : null;
+  jumpHot = b ? +b.dataset.n : -1;
+  Array.prototype.forEach.call($("jump").children, function(x){
+    x.classList.toggle("hot", +x.dataset.n === jumpHot);
+  });
+});
+document.addEventListener("pointerup", function(){ if(jumpFrom >= 0) closeJump(true); });
+document.addEventListener("pointercancel", function(){ if(jumpFrom >= 0) closeJump(false); });
+
+// ---- 音源（速さの影響を受けん一本） ----
+var track = null;
+$("trackinput").addEventListener("change", function(e){
+  var f = (e.target.files||[])[0]; e.target.value = "";
+  if(!f) return;
+  loadTrack(f);
+});
+$("trackrow").addEventListener("click", function(e){
+  if(e.target.id === "track-mu"){
+    if(!track) return;
+    track.mute = !track.mute;
+    e.target.classList.toggle("off", !!track.mute);
+    applyAudio();
+    return;
+  }
+  $("trackinput").click();
+});
+function loadTrack(f){
+  if(track){
+    track.el.pause();
+    try { if(track.gain) track.gain.disconnect(); if(track.src) track.src.disconnect(); } catch(err){}
+    URL.revokeObjectURL(track.url);
+  }
+  var url = URL.createObjectURL(f);
+  var a = document.createElement("audio");
+  a.src = url; a.loop = true; a.preload = "auto";
+  a.addEventListener("loadedmetadata", function(){
+    track = { name:f.name, url:url, el:a, dur:a.duration||0, mute:false };
+    $("track-nm").textContent = f.name;
+    $("track-nm").classList.remove("void");
+    $("track-du").textContent = isFinite(a.duration) ? a.duration.toFixed(1)+"s" : "";
+    $("track-mu").classList.remove("off");
+    wireSlot(track);
+    applyAudio();
+    if(playing) a.play().catch(function(){});
+  });
+  a.addEventListener("error", function(){ alert(f.name + " は再生できない。"); });
+}
+
+// ---- 速さ ----
+var spdSlot = 0;
+function applySpeed(){
+  for(var k=0;k<NS;k++){
+    var s = slots[k];
+    if(!s || s.pending) continue;
+    if(s.spd === undefined) s.spd = 1;
+    try { s.el.playbackRate = s.spd; } catch(e){}
+  }
+  if(track) try { track.el.playbackRate = 1; } catch(e){}
+}
+function refreshSpdUI(){
+  var s = slots[spdSlot];
+  var v = (s && !s.pending && s.spd !== undefined) ? s.spd : 1;
+  $("s-spd").value = v;
+  $("v-spd").textContent = (+v).toFixed(2);
+}
+$("s-spd").addEventListener("input", function(){
+  var s = slots[spdSlot];
+  if(s && !s.pending) s.spd = +$("s-spd").value;
+  $("v-spd").textContent = (+$("s-spd").value).toFixed(2);
+  applySpeed();
+});
+
+// ---- パネルの開閉とリセット ----
+var PKEY = "meimetsu.folds.v1", folds = {};
+try { folds = JSON.parse(localStorage.getItem(PKEY) || "{}"); } catch(e){ folds = {}; }
+var panels = [];
+function setupPanels(){
+  document.querySelectorAll(".col h2").forEach(function(h){
+    var body = [], n = h.nextElementSibling;
+    while(n && n.tagName !== "H2"){ body.push(n); n = n.nextElementSibling; }
+    var key = h.textContent.trim();
+    var defs = snapshot(body);
+    var p = { h:h, body:body, key:key, defs:defs };
+    panels.push(p);
+    h.classList.add("fold");
+    var rb = document.createElement("button");
+    rb.className = "reset"; rb.type = "button"; rb.textContent = "戻す";
+    rb.addEventListener("click", function(e){ e.stopPropagation(); resetPanel(p); });
+    h.appendChild(rb);
+    h.addEventListener("click", function(){ toggle(p, !folds[key]); });
+    if(folds[key]) toggle(p, true, true);
+  });
+}
+function toggle(p, closed, silent){
+  p.body.forEach(function(el){ el.style.display = closed ? "none" : ""; });
+  p.h.classList.toggle("closed", !!closed);
+  folds[p.key] = !!closed;
+  if(!silent){ try { localStorage.setItem(PKEY, JSON.stringify(folds)); } catch(e){} }
+}
+function snapshot(body){
+  var d = { ranges:[], segs:[], sw:false };
+  body.forEach(function(el){
+    if(!el.querySelectorAll) return;
+    var list = el.matches && el.matches("input[type=range]") ? [el] : [];
+    Array.prototype.push.apply(list, el.querySelectorAll("input[type=range]"));
+    list.forEach(function(r){ d.ranges.push([r.id, r.getAttribute("value")]); });
+    var segs = el.matches && el.matches(".seg") ? [el] : [];
+    Array.prototype.push.apply(segs, el.querySelectorAll(".seg"));
+    segs.forEach(function(sg){
+      var on = sg.querySelector("button.on");
+      if(on) d.segs.push([sg.id, on.dataset.v]);
+    });
+    if((el.matches && el.matches(".swatch")) || el.querySelector(".swatch")) d.sw = true;
+  });
+  return d;
+}
+function resetPanel(p){
+  p.defs.ranges.forEach(function(r){
+    var el = $(r[0]); if(!el) return;
+    el.value = r[1];
+    el.dispatchEvent(new Event("input", { bubbles:true }));
+  });
+  p.defs.segs.forEach(function(g){
+    var sg = $(g[0]); if(!sg) return;
+    var b = sg.querySelector('button[data-v="' + g[1] + '"]');
+    if(b) b.click();
+  });
+  if(p.defs.sw){
+    var cs = slots[colSlot];
+    if(cs && !cs.pending){ cs.colors = []; cs.colAmt = 0; cs.blend = "difference"; }
+    refreshColUI();
+  }
+  if(!playing) render();
+}
+
+renderSlots();
+renderClips();
+refreshColUI();
+refreshSpdUI();
+setupPanels();
+applySpeed();
+setupView();
+render();
+})();
+
+</script>
+</body>
+</html>
