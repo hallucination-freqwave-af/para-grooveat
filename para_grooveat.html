@@ -42,6 +42,8 @@ header{
   display:flex;align-items:center;gap:14px;flex:none;
   padding:8px 16px;border-bottom:1px solid var(--line);
 }
+html[lang=en] .slots li .rk{width:3.4em;}
+header .lang{flex:none;padding:2px 9px;font-size:11px;color:var(--dim);}
 h1{font-size:15px;font-weight:500;margin:0;letter-spacing:0.4em;}
 header .note{color:var(--faint);font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
@@ -255,6 +257,7 @@ textarea,:root:not([data-theme="dark"]) textarea{background:#070d13;color:#dce5e
 <header>
   <h1>para grooveat</h1>
   <div class="note">五つの層が対等に入れ替わる。手前を「先頭」、その裏を「後ろ」と呼ぶ。「演奏」中はつまみがその場で効く。</div>
+  <button id="btn-lang" class="lang">English</button>
 </header>
 
 <div class="top">
@@ -2794,8 +2797,8 @@ function openPlain(){
   setupPop(popWin, false);
 }
 function setupPop(w, pip){
-  popWin = w; var d = w.document; d.title = "para grooveat — 映像";
-  d.body.innerHTML = '<video id="v" autoplay muted playsinline></video><div id="h">' + (pip ? 'いつも前面・端をつかんで大きさを変えられる・ここでもキーで叩ける' : 'ダブルクリックで全画面・ここでもキーで叩ける') + '</div>';
+  popWin = w; var d = w.document; d.title = T("para grooveat — 映像");
+  d.body.innerHTML = '<video id="v" autoplay muted playsinline></video><div id="h">' + T(pip ? 'いつも前面・端をつかんで大きさを変えられる・ここでもキーで叩ける' : 'ダブルクリックで全画面・ここでもキーで叩ける') + '</div>';
   var st = d.createElement("style");
   st.textContent = 'html,body{margin:0;height:100%;background:#000;overflow:hidden}video{width:100%;height:100%;object-fit:contain;display:block;background:#000}#h{position:fixed;left:10px;bottom:8px;color:#777;font:12px system-ui;transition:opacity 1s}';
   d.head.appendChild(st);
@@ -3197,7 +3200,7 @@ function cutList(){
 async function doBundle(){
   if(!sessBlob || !sessBlob.size){ alert("収集した映像が無い。"); return; }
   await saveOut(sessName + ".webm", sessBlob);
-  await saveOut(sessName + "_cuts.txt", cutList());
+  await saveOut(sessName + "_cuts.txt", T(cutList()));
 }
 
 // ---- レシピ ----
@@ -3351,7 +3354,7 @@ function recipeFfmpeg(){
     "  meimetsu_" + (seed || "live") + ".mov";
 }
 
-function fillRecipe(){ $("recipetext").value = (tab==="list") ? recipeList() : recipeFfmpeg(); }
+function fillRecipe(){ $("recipetext").value = T((tab==="list") ? recipeList() : recipeFfmpeg()); }
 
 $("btn-copy").addEventListener("click", function(){
   var ta = $("recipetext");
@@ -3566,6 +3569,203 @@ setupPanels();
 applySpeed();
 setupView();
 render();
+// ---- 言語切り替え（日本語 ⇄ English）。画面の文字だけを差し替える。中の仕組みは日本語のまま ----
+var LANG = (function(){ try { var v = localStorage.getItem("pg_lang"); if(v === "ja" || v === "en") return v; } catch(e){}
+  return /^ja\b/i.test(navigator.language || "") ? "ja" : "en"; })();
+var EN = {
+  "五つの層が対等に入れ替わる。手前を「先頭」、その裏を「後ろ」と呼ぶ。「演奏」中はつまみがその場で効く。":"Five layers swap places as equals. The one in front is \"Front\", the one behind it is \"Back\". In \"Live\" mode, the knobs take effect instantly.",
+  "二本以上読み込む。ここに放り込むか、行を押して選ぶ。H.264 の mp4 / mov。写真はまとめて放り込むと一つの層に束で入る。":"Load two or more videos. Drop them here, or click a row to pick. H.264 mp4 / mov. Drop a batch of photos and they go into one layer as a bundle.",
+  "抜き：画の縁の色に近い所を透かす（[ ] で強さ）":"Key: makes areas close to the edge color transparent ([ ] for strength)",
+  "この素材には音が入ってへん。mov の中身が PCM やとブラウザが読めん。AAC で書き出し直すと鳴る。":"No audio the browser can read. If the mov holds PCM audio, re-export it as AAC.",
+  "銀河の楽器のCSVやない（「カウント」「強く鳴った」の列がない）。":"This isn't a CSV from the Galaxy instrument (no \"カウント\" / \"強く鳴った\" columns).",
+  "先に「CSVを読む」で銀河の楽器のCSVを入れる。":"Load a Galaxy instrument CSV first with \"Load CSV\".",
+  "別窓が開かれへん。ブラウザのポップアップを許可して、もう一回押す。":"Couldn't open the window. Allow pop-ups in your browser and press again.",
+  "いつも前面・端をつかんで大きさを変えられる・ここでもキーで叩ける":"Always on top · drag the edges to resize · keys work here too",
+  "ダブルクリックで全画面・ここでもキーで叩ける":"Double-click for fullscreen · keys work here too",
+  " は再生できない。H.264 に変換してから。":" can't be played. Convert it to H.264 first.",
+  " は再生できない。":" can't be played.",
+  "CSVにカウントの行がない。":"No count rows in this CSV.",
+  "設定が変わった。生成を押す。":"Settings changed. Press Generate.",
+  "このブラウザは録画に対応してない。":"This browser can't record.",
+  "録画を開始できひんかった。":"Couldn't start recording.",
+  "収集を開始できひんかった。":"Couldn't start collecting.",
+  "収集した映像が無い。":"Nothing collected yet.",
+  "自動の切り替えに戻った":"Back to auto switching",
+  "あり（[ ] で強さ・G で外す）":"on ([ ] strength · G to remove)",
+  "未（銀河の楽器で落としたCSV）":"empty (CSV exported from the Galaxy instrument)",
+  "MB（ダウンロードに入ってる）":"MB (in your Downloads)",
+  "演奏（一回性・再現不可）":"Live (one-off, not reproducible)",
+  "（演奏中に可変）":" (adjustable while live)",
+  "   ※ffmpegには入らん（録画のみ）":"   * not in ffmpeg (recording only)",
+  "※ffmpegには入らん（録画のみ）":"* not in ffmpeg (recording only)",
+  "para grooveat / 収集した部品  ":"para grooveat / collected clips  ",
+  "# ffmpeg で繋いで mp4 にする":"# join with ffmpeg into an mp4",
+  "# -i の並び順： ":"# -i order: ",
+  "どの層がいつ先頭に出るか":"Which layer is in front, and when",
+  "para grooveat — 映像":"para grooveat — video",
+  "全体の尺（生成用）":"Total length (Generate)",
+  "起きる間隔（平均）":"Avg interval",
+  "間隔（ランダム）":"Interval (random)",
+  "色（層ごと）":"Color (per layer)",
+  "（押して止める）":" (press to stop)",
+  "・H で自動へ）":" · H for auto)",
+  "（明滅止め）":" (frozen)",
+  "（リピート）":" (repeat)",
+  "（アドリブ）":" (adlib)",
+  "（手打ち ":" (by hand ",
+  "コマ落とし  先頭 ":"Frame drop  Front ",
+  "ちぎり  出る率 ":"Tear  chance ",
+  "変形  対象 ":"Transform  target ",
+  "目立つ時だけ":"Standouts only",
+  "鳴るたびに次":"Next on each hit",
+  "飛ぶ前に戻す":"Undo jumps",
+  "一度に飛ぶ数":"Knobs per jump",
+  "反転が出る率":"Flip chance",
+  "うねりの周期":"Wobble period",
+  "刻みの間隔":"Step interval",
+  "一回の角度":"Angle per step",
+  "今すぐ起こす":"Trigger now",
+  "まとめて落とす":"Download all",
+  "ファイルで保存":"Save as file",
+  "もう一回保存":"Save again",
+  "この順に繋ぐ":"Join in this order",
+  "レーン・凍結":" lanes · frozen ",
+  "CSVの出来事":"CSV events",
+  "大きくなる":"Zoom",
+  "起こさない":"Off",
+  "映像と一緒":"Follow video",
+  "両方鳴らす":"Both",
+  "後ろは直前":"Back = previous",
+  "後ろは次":"Back = next",
+  "明滅もどす":"Unfreeze",
+  "明滅止め":"Freeze",
+  "収集開始":"Start collecting",
+  "収集中 ":"Collecting ",
+  "書き出し中":"Exporting…",
+  "リピート中":"Repeating",
+  "録画中 ":"Recording ",
+  "録画中":"Recording",
+  "層に入れる":"Into a layer",
+  "元ファイル: ":"Source file: ",
+  "切替回数 ":"Switches ",
+  "秒ごとに ":"s, ",
+  "s / 差し込み ":"s / insert ",
+  "s / 最長 ":"s / longest ",
+  "地に固定":"Fixed base",
+  "順に回す":"In order",
+  "逆に回す":"Reverse",
+  "毎カウント":"Every count",
+  "カウント/分":"counts/min",
+  "カウント目":"",
+  "カウント・":" counts · ",
+  "%・衝突":"% · collisions ",
+  "・第3の拍":" · 3rd beats ",
+  "CSVを読む":"Load CSV",
+  "全部戻す":"Reset all",
+  "差し替え":"replace",
+  "両回り":"Both ways",
+  "右回り":"Clockwise",
+  "左回り":"Counter-cw",
+  "コマ落とし":"Frame drop",
+  "走らせる":"Run",
+  "リピート":"Repeat",
+  "頭出し":"To start",
+  "ここから":"From here",
+  "ここまで":"To here",
+  "コピーした":"Copied",
+  "今の部品 ":"Current clip ",
+  "保存した ":"Saved ",
+  "録れた ":"Recorded ",
+  "写真 ":"Photos ",
+  "事件：":"Event: ",
+  " 抜く強さ ":" key strength ",
+  " 抜き：":" key: ",
+  "抜き：":"key: ",
+  "読む用":"Readable",
+  "回し  ":"Roll  every ",
+  "衝突  ":"Collision  ",
+  "度 / ":"° / ",
+  "後ろは ":"Back = ",
+  "並び ":"Order ",
+  " 向き ":" dir ",
+  "   拡":"   scale ",
+  " → 拡":" → scale ",
+  "  反転":"  flip ",
+  "蛍光ピンク":"Neon pink",
+  "蛍光グリーン":"Neon green",
+  "蛍光イエロー":"Neon yellow",
+  "蛍光オレンジ":"Neon orange",
+  "シアン":"Cyan","水色":"Light blue","ピンク":"Pink","青":"Blue","紫":"Purple","赤":"Red","金":"Gold","銀":"Silver","白":"White","灰":"Gray","黒":"Black",
+  "色なし":"No color",
+  "スクリーン":"Screen","オーバーレイ":"Overlay","覆い焼き":"Dodge","焼き込み":"Burn","乗算":"Multiply","加算":"Add","色相":"Hue",
+  "押しのけ":"Push","揺さぶり":"Shake","差分":"Difference",
+  "ランダム":"Random","ゆっくり":"Slow","止まる":"Hold","連打":"Burst","回る":"Spin","反転":"Invert",
+  "起こす":"On","止める":"Off","そのまま":"as is",
+  "長いほう":"Long","短いほう":"Short","敏感さ":"Sensitivity",
+  "うねり":"Wobble","この層":"This layer","大きさ":"Size","位置":"Position","回転":"Rotation","動き":"Motion","残像":"Trail",
+  "出る率":"Chance","荒さ":"Roughness","複雑さ":"Complexity","濃さ":"Amount","強さ":"Strength","粗さ":"Coarseness","跳ね幅":"Range",
+  "長さ":"Duration","遡り":"Pre-roll","音量":"Volume","間隔":"Interval","最短":"Shortest","最長":"Longest","速さ":"Speed","開始":"Start count",
+  "素材":"Material","音源":"Track","読む":"Load","外す":"Remove","戻す":"Reset",
+  "並び":"Order","抽選":"Shuffle","切り替え":"Switching","一定":"Even","偏り":"Skewed",
+  "変形":"Transform","両方":"Both","回し":"Roll","ちぎり":"Tear","衝突":"Collision","飛び":"Jumps","事件":"Events",
+  "演奏":"Live","生成":"Generate","再生":"Play","停止":"Stop","録画":"Rec","レシピ":"Recipe","別窓":"Pop out",
+  "収集":"Collect","溜め中":"Buffering","残す":"Keep","捨てる":"Discard","コピー":"Copy","閉じる":"Close",
+  "先頭":"Front","後ろ":"Back","なし":"None","直前":"previous",
+  "切替 ":"Switches ","切替":"Switches","種 ":"Seed ","種":"Seed","尺":"Length","今":"Now",
+  "上下":"vertical","左右":"horizontal",
+  "地 ":"Base ","地":"base","差":"ins","両":"both","右":"Right","左":"Left","次":"next","生":"raw",
+  "倍":"×","度":"°","秒":"s","枚":" pics","本":" clips","色":"Color","音 ":"Sound ","音":"Sound","未":"empty","層":"L",
+  " 位置":" pos "," 回転":" rot ","・":" · ","：":": "
+};
+// 素材の行の小さいボタンは短く
+var EN_SHORT = { "音":"snd", "音無":"mute", "映":"vid", "逆":"rev", "抜":"key" };
+var EN_RE = new RegExp(Object.keys(EN).sort(function(a,b){ return b.length - a.length; })
+  .map(function(k){ return k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("|"), "g");
+function T(s){
+  if(LANG !== "en" || !s || !/[　-ヿ一-鿿！-｠]/.test(s)) return s;
+  return s.replace(EN_RE, function(m){ return EN[m]; });
+}
+function trNode(n){
+  if(n.nodeType === 3){
+    var p = n.parentNode; if(!p || /^(SCRIPT|STYLE|TEXTAREA)$/.test(p.nodeName) || p.id === "btn-lang") return;
+    if(LANG === "en"){
+      if(n.__en !== undefined && n.data === n.__en) return;
+      n.__ja = n.data;
+      var sh = p.classList && p.classList.contains("mu") && EN_SHORT[n.data.trim()];
+      n.__en = sh || T(n.data);
+      if(n.__en !== n.data) n.data = n.__en;
+    } else if(n.__ja !== undefined && n.data === n.__en){ n.data = n.__ja; n.__en = undefined; }
+  } else if(n.nodeType === 1){
+    if(/^(SCRIPT|STYLE|TEXTAREA)$/.test(n.nodeName) || n.id === "btn-lang") return;
+    if(n.hasAttribute("title")){
+      var t = n.getAttribute("title");
+      if(LANG === "en"){ if(t !== n.__enT){ n.__jaT = t; n.__enT = T(t); if(n.__enT !== t) n.setAttribute("title", n.__enT); } }
+      else if(n.__jaT !== undefined && t === n.__enT){ n.setAttribute("title", n.__jaT); n.__enT = undefined; }
+    }
+    for(var c = n.firstChild; c; c = c.nextSibling) trNode(c);
+  }
+}
+var _alert = window.alert.bind(window);
+window.alert = function(m){ return _alert(T(String(m))); };
+new MutationObserver(function(recs){
+  recs.forEach(function(r){
+    if(r.type === "characterData") trNode(r.target);
+    else if(r.type === "attributes") trNode(r.target);
+    else r.addedNodes.forEach(trNode);
+  });
+}).observe(document.body, { subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:["title"] });
+function applyLang(){
+  document.documentElement.lang = LANG;
+  trNode(document.body);
+  $("btn-lang").textContent = LANG === "en" ? "日本語" : "English";
+  try { if($("recipe").classList.contains("on") || $("recipetext").value) fillRecipe(); } catch(e){}
+}
+$("btn-lang").addEventListener("click", function(){
+  LANG = LANG === "en" ? "ja" : "en";
+  try { localStorage.setItem("pg_lang", LANG); } catch(e){}
+  applyLang();
+});
+applyLang();
 })();
 
 </script>

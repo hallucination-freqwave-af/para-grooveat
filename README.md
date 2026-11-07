@@ -16,6 +16,8 @@
 
 素材はブラウザの中で読むだけで、どこにも送られない。
 
+画面は右上のボタンで日本語 ⇄ English を切り替えられる（最初はブラウザの言語に合わせる）。
+
 ## 素材の準備
 
 読み込めるのは **H.264 の mp4 / mov**。iPhone の動画や ProRes などはそのままだと入らないことがある。
@@ -94,6 +96,8 @@ No install. It runs from a single HTML file.
 
 Your footage is only read inside the browser. Nothing is uploaded.
 
+The app switches between Japanese and English with the button at the top right (it follows your browser language at first).
+
 ### Preparing footage
 
 Supported: **H.264 mp4 / mov**. iPhone videos and ProRes may not load as-is.
@@ -108,7 +112,7 @@ Drop a batch of photos at once and they go into one layer as a bundle.
 
 ### Modes
 
-- **Play**: the knobs take effect live while it runs
+- **Live**: the knobs take effect instantly while it runs
 - **Generate**: builds one piece at a length you choose
 - **Record**: press to start, press again to stop and save
 - **Collect**: record straight through, mark "from here", and keep only the good parts as pieces (ffmpeg steps to join them are included)
