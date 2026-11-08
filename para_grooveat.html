@@ -484,6 +484,12 @@ textarea,:root:not([data-theme="dark"]) textarea{background:#070d13;color:#dce5e
 
   <div class="col">
     <h2>ちぎり</h2>
+    <div class="steps" id="st-tear" style="margin:8px 0">
+      <button data-k="0" class="on" title="手でちぎった紙">1 紙</button>
+      <button data-k="1" title="小さい紙片が散らばる">2 点在</button>
+      <button data-k="2" title="円・多角形・帯">3 図形</button>
+      <button data-k="3" title="中心から放射状に対称">4 曼荼羅</button>
+    </div>
     <label class="field">
       <span class="lab">出る率 <b class="num" id="v-mask">0</b> %</span>
       <input type="range" id="s-mask" min="0" max="100" step="1" value="0">
@@ -2122,6 +2128,90 @@ function clipTorn(ctx, seed, W, H){
   ctx.closePath();
   ctx.clip();
 }
+// ---- ちぎりの種類：1 紙／2 点在／3 図形／4 曼荼羅（オンの中から、切り替えごとに一つ引く） ----
+var tearKinds = [0];
+$("st-tear").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return;
+  b.classList.toggle("on");
+  var on = Array.prototype.filter.call(this.querySelectorAll("button"), function(x){ return x.classList.contains("on"); });
+  if(!on.length){ b.classList.add("on"); on = [b]; }   // 全部外すと何も出えへんから、最後の一つは残す
+  tearKinds = on.map(function(x){ return +x.dataset.k; });
+  if(!playing) render();
+});
+// 輪郭をなぞりながら繊維のギザギザを足す（荒さ＝毛羽、複雑さ＝重ねる段の数）
+function roughPoly(ctx, verts, rnd, R, rough, cplx){
+  var V = verts.length, octN = 1 + Math.floor(cplx*4.999), fiber = R*(0.0012 + rough*0.010);
+  var j = [0,0,0,0,0], first = true, i, k, q;
+  var cx = 0, cy = 0; for(i=0;i<V;i++){ cx += verts[i][0]; cy += verts[i][1]; } cx /= V; cy /= V;
+  for(i=0;i<V;i++){
+    var x1 = verts[i][0], y1 = verts[i][1], x2 = verts[(i+1)%V][0], y2 = verts[(i+1)%V][1];
+    var L = Math.hypot(x2-x1, y2-y1) || 1;
+    var M = rough < 0.02 ? 1 : Math.max(2, Math.round(L/(1.6 + (1-rough)*3)));
+    for(k=0;k<M;k++){
+      var t = k/M, px = x1+(x2-x1)*t, py = y1+(y2-y1)*t;
+      var dx = px-cx, dy = py-cy, d = Math.hypot(dx,dy) || 1, o = 0;
+      for(q=0;q<octN;q++){ j[q] = j[q]*TSM[q] + (rnd()*2-1)*(1-TSM[q]); o += j[q]*fiber*TAMP[q]; }
+      var X = px + (dx/d)*o, Y = py + (dy/d)*o;
+      if(first){ ctx.moveTo(X,Y); first = false; } else ctx.lineTo(X,Y);
+    }
+  }
+  ctx.closePath();
+}
+function blobVerts(rnd, cx, cy, r, n, irr){
+  var v = [], a0 = rnd()*Math.PI*2, ar = 0.6 + rnd()*0.8;
+  for(var i=0;i<n;i++){
+    var a = a0 + i/n*Math.PI*2 + (rnd()-0.5)*(Math.PI*2/n)*0.8, rr = r*(1 - irr*0.5 + rnd()*irr);
+    v.push([cx + Math.cos(a)*rr*ar, cy + Math.sin(a)*rr/ar]);
+  }
+  return v;
+}
+function clipTear(ctx, seed, W, H){
+  var kind = tearKinds[seed % tearKinds.length];
+  if(kind === 0 || kind === undefined){ clipTorn(ctx, seed, W, H); return; }
+  var rnd = mulberry32(seed ^ 0x5bd1e995);
+  var size = +$("s-msize").value/100, rough = +$("s-mrough").value/100, cplx = +$("s-mcplx").value/100;
+  var R = Math.min(W, H), i, n;
+  ctx.beginPath();
+  if(kind === 1){
+    // 点在：複雑さ＝枚数、大きさ＝一枚の大きさ
+    n = 3 + Math.floor(cplx*22 + rnd()*3);
+    var pr = R*(0.03 + size*0.20);
+    for(i=0;i<n;i++){
+      var x = rnd()*W, y = rnd()*H, r = pr*(0.45 + rnd()*1.1);
+      roughPoly(ctx, blobVerts(rnd, x, y, r, 5 + Math.floor(rnd()*5), 0.7), rnd, R, rough, cplx);
+    }
+    ctx.clip();
+  } else if(kind === 2){
+    // 図形：円・多角形・帯。複雑さ＝数、荒さ＝縁の毛羽（0ならきれいに切った形）
+    n = 1 + Math.floor(cplx*5.999);
+    for(i=0;i<n;i++){
+      var sx = W*(0.15 + rnd()*0.7), sy = H*(0.15 + rnd()*0.7), sr = R*(0.08 + size*0.45)*(0.6 + rnd()*0.7);
+      var pick = rnd(), v = [], k;
+      if(pick < 0.34){ for(k=0;k<48;k++){ var a = k/48*Math.PI*2; v.push([sx+Math.cos(a)*sr, sy+Math.sin(a)*sr]); } }
+      else if(pick < 0.70){ var m = 3 + Math.floor(rnd()*5), ro = rnd()*Math.PI; for(k=0;k<m;k++){ var b = ro + k/m*Math.PI*2; v.push([sx+Math.cos(b)*sr, sy+Math.sin(b)*sr]); } }
+      else { var th = sr*(0.18 + rnd()*0.35), ang = rnd()*Math.PI, ln = Math.hypot(W,H), ux = Math.cos(ang), uy = Math.sin(ang);
+             v = [[sx-ux*ln-uy*th, sy-uy*ln+ux*th],[sx+ux*ln-uy*th, sy+uy*ln+ux*th],[sx+ux*ln+uy*th, sy+uy*ln-ux*th],[sx-ux*ln+uy*th, sy-uy*ln-ux*th]]; }
+      roughPoly(ctx, v, rnd, R, rough, cplx);
+    }
+    ctx.clip();
+  } else {
+    // 曼荼羅：中心から放射対称。複雑さ＝花びらの数と輪の数、大きさ＝半径。重なりは抜き合い（偶奇）で模様になる
+    var cx = W/2 + (rnd()-0.5)*W*0.15, cy = H/2 + (rnd()-0.5)*H*0.15;
+    var big = R*(0.18 + size*0.62), sym = 4 + 2*Math.floor(cplx*6 + rnd()*2), rings = 1 + Math.floor(cplx*2.999), rot = rnd()*Math.PI;
+    for(var g=0; g<rings; g++){
+      var rr = big*(1 - g*0.28), pw = (0.25 + rnd()*0.5)*Math.PI/sym, inner = rr*(0.15 + rnd()*0.35), off = g*Math.PI/sym;
+      for(i=0;i<sym;i++){
+        var a0 = rot + off + i/sym*Math.PI*2, pv = [], k2, steps = 14;
+        for(k2=0;k2<=steps;k2++){ var tt = k2/steps, aa = a0 - pw + 2*pw*tt, rad = inner + (rr-inner)*Math.sin(Math.PI*tt); pv.push([cx+Math.cos(aa)*rad, cy+Math.sin(aa)*rad]); }
+        pv.push([cx+Math.cos(a0)*inner*0.6, cy+Math.sin(a0)*inner*0.6]);
+        roughPoly(ctx, pv, rnd, R, rough*0.6, cplx);
+      }
+    }
+    var cv2 = []; for(i=0;i<36;i++){ var a3 = i/36*Math.PI*2; cv2.push([cx+Math.cos(a3)*big*0.12, cy+Math.sin(a3)*big*0.12]); }
+    roughPoly(ctx, cv2, rnd, R, rough*0.4, cplx);
+    ctx.clip("evenodd");
+  }
+}
 function activeFX(){
   var f = curSeg();
   return (f && f.fx) ? f.fx : null;
@@ -2255,7 +2345,7 @@ function drawLayer(dest, k, isFront){
   var roll = isFront ? stepAngle() : 0;
   if(mk !== null){
     ctx.save();
-    clipTorn(ctx, mk, W, H);
+    clipTear(ctx, mk, W, H);
   }
   if(!t && !fx && !roll){
     ctx.drawImage(h.cv, 0, 0);
