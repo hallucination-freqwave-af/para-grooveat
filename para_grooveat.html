@@ -2571,6 +2571,8 @@ function tick(){
     // 手打ち：切り替えは打鍵だけ。時計は裏で進めて、ちぎりや変形の動きは打った瞬間から数える
     var hp = (performance.now() - t0)/1000; curPos = hp;
     if(handSeg) handSeg.dur = Math.max(handSeg.dur, hp - handSeg.t + 0.02);
+    // 割り込み：短く叩いた層は TAP_MS だけ見せて、押してるキーがなければ自動へ戻る（自動の時計は裏で進んでる）
+    if(handUntil && performance.now() >= handUntil && !Object.keys(held).length){ handUntil = 0; handOff(); rafId = requestAnimationFrame(tick); return; }
     $("ro-pos").textContent = fmt(hp);
     if(recording) $("btn-rec").textContent = "録画中 " + fmt(hp) + "（押して止める）";
     render(); rafId = requestAnimationFrame(tick); return;
@@ -2731,8 +2733,8 @@ document.addEventListener("keydown", function(e){
   var nv = jumpMode === "rand" ? "csv" : jumpMode === "csv" ? "rand" : lastJumpMode;
   var b = $("seg-jump").querySelector('button[data-v="' + nv + '"]'); if(b) b.click();
 });
-// ---- 手打ち（キーボードを叩くたびに切り替わる。数字1〜5はその層へ、ほかの文字キーは次の層へ。最初の一打で手打ちに入り、H で自動の切り替えに戻る。長押しは離すと戻る） ----
-var hand = false, handSeg = null, handTaps = 0;
+// ---- 手打ち（キーボードを叩くたびに割り込む。数字1〜5はその層へ、ほかの文字キーは次の層へ。自動の切り替えは裏で回り続け、短く叩くと一瞬だけ割り込んで自動へ戻る。長押しは押してる間だけ留まり、離すと自動へ戻る） ----
+var hand = false, handSeg = null, handTaps = 0, handUntil = 0, TAP_MS = 350;
 function handTap(layer){
   if(!playing){ if(!live && !segs.length) return; }
   var all = loaded(); if(!all.length) return;
@@ -2750,11 +2752,11 @@ function handTap(layer){
     } }
   show(layer); handTaps++;
   if(cap) capSeg((performance.now() - cap.t0)/1000);
-  $("ro-layer").textContent = "層" + (layer+1) + "（手打ち " + handTaps + "・H で自動へ）";
+  $("ro-layer").textContent = "層" + (layer+1) + "（手打ち " + handTaps + "）";
   if(!playing) render();
 }
 function handOff(){
-  if(!hand) return; hand = false; handSeg = null; adSeg = null; si = -1;
+  if(!hand) return; hand = false; handSeg = null; adSeg = null; si = -1; handUntil = 0;
   if(csvMade && !live && totalLen){ var hp = (performance.now() - t0)/1000; t0 = performance.now() - (hp % totalLen)*1000; }
   $("ro-layer").textContent = "自動の切り替えに戻った";
 }
@@ -2766,17 +2768,17 @@ document.addEventListener("keydown", function(e){
   var m = /^Digit([1-5])$/.exec(e.code), isKey = /^Key[A-Z]$/.test(e.code);
   if(!m && !isKey) return;
   e.preventDefault();
-  var prev = activeLayer, wasHand = hand;
+  handUntil = 0;
   handTap(m ? +m[1] - 1 : undefined);
-  held[e.code] = { t:performance.now(), prev:prev, wasHand:wasHand };
+  held[e.code] = { t:performance.now() };
 });
-// 長押し：押してる間だけ切り替わり、離したら元の層へ戻る（短く叩いた時は切り替えたまま）
+// 離した時：長押しならすぐ自動へ。短く叩いた時は、叩いてから TAP_MS 経ったら自動へ（ほかのキーを押してる間は待つ）
 var held = {}, HOLD_MS = 280;
 document.addEventListener("keyup", function(e){
   var h = held[e.code]; if(!h) return; delete held[e.code];
-  if(performance.now() - h.t < HOLD_MS) return;
-  if(!h.wasHand){ handOff(); return; }
-  handTap(h.prev);
+  if(Object.keys(held).length) return;
+  if(performance.now() - h.t >= HOLD_MS){ handOff(); if(!playing) render(); return; }
+  handUntil = h.t + TAP_MS;
 });
 // ---- 別窓（映像だけを別のウィンドウに出す。つまみはこっちで触る） ----
 var popWin = null, popStream = null;
@@ -2818,8 +2820,10 @@ function setupPop(w, pip){
 // ---- 録画 ----
 var recording = false, rec = null, chunks = [];
 
+function extOf(b){ return (b && /mp4/.test(b.type)) ? ".mp4" : ".webm"; }
 function pickMime(){
-  var c = ["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
+  // mp4（H.264）で録れるブラウザなら mp4 を先に使う。無理なら webm
+  var c = ["video/mp4;codecs=avc1.640028,mp4a.40.2","video/mp4;codecs=avc1,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
   for(var i=0;i<c.length;i++){ if(window.MediaRecorder && MediaRecorder.isTypeSupported(c[i])) return c[i]; }
   return "";
 }
@@ -2893,7 +2897,7 @@ var recT0 = 0;
 function saveRec(blob){
   // 止めたらそのまま保存する（名前に日時を入れて、上書きされんように）
   var d = new Date(), z = function(x){ return String(x).padStart(2,"0"); };
-  saveOut("paragrooveat_" + d.getFullYear() + z(d.getMonth()+1) + z(d.getDate()) + "_" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + ".webm", blob);
+  saveOut("paragrooveat_" + d.getFullYear() + z(d.getMonth()+1) + z(d.getDate()) + "_" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + extOf(blob), blob);
   showRecDone();
   var sp = $("recdone").querySelector("span"); if(sp) sp.textContent = "保存した " + (blob.size/1048576).toFixed(0) + "MB（ダウンロードに入ってる）";
 }
@@ -3025,11 +3029,11 @@ $("recdone").addEventListener("click", function(e){
   var b = e.target.closest("button"); if(!b || !lastRec) return;
   var a = b.dataset.r;
   if(a === "drop"){ lastRec = null; showRecDone(); return; }
-  if(a === "save"){ saveOut("paragrooveat_" + (seed || "live_" + Date.now()) + ".webm", lastRec); return; }
+  if(a === "save"){ saveOut("paragrooveat_" + (seed || "live_" + Date.now()) + extOf(lastRec), lastRec); return; }
   // 層に入れる：空いてる枠へ、無ければ差4を差し替え
   var i = firstFree();
   if(i === null) i = NS - 1;
-  var name = "録_" + new Date().toTimeString().slice(0,8).replace(/:/g,"") + ".webm";
+  var name = "録_" + new Date().toTimeString().slice(0,8).replace(/:/g,"") + extOf(lastRec);
   var f;
   try { f = new File([lastRec], name, { type: lastRec.type || "video/webm" }); }
   catch(err){ f = lastRec; f.name = name; }
@@ -3171,7 +3175,7 @@ $("btn-bundle").addEventListener("click", function(){
 function cutList(){
   var L = [];
   L.push("para grooveat / 収集した部品  " + clips.length + "本");
-  L.push("元ファイル: " + sessName + ".webm");
+  L.push("元ファイル: " + sessName + extOf(sessBlob));
   L.push("");
   L.push("この順に繋ぐ");
   clips.forEach(function(c,i){
@@ -3189,7 +3193,7 @@ function cutList(){
   });
   parts.push(labels.join("") + "concat=n=" + clips.length + ":v=1:a=1[v][a]");
   L.push("");
-  L.push("ffmpeg -i \"" + sessName + ".webm\" \\");
+  L.push("ffmpeg -i \"" + sessName + extOf(sessBlob) + "\" \\");
   L.push("  -filter_complex \"" + parts.join(";\n   ") + "\" \\");
   L.push("  -map \"[v]\" -map \"[a]\" -r 30 \\");
   L.push("  -c:v libx264 -crf 18 -pix_fmt yuv420p -c:a aac -b:a 320k \\");
@@ -3199,7 +3203,7 @@ function cutList(){
 
 async function doBundle(){
   if(!sessBlob || !sessBlob.size){ alert("収集した映像が無い。"); return; }
-  await saveOut(sessName + ".webm", sessBlob);
+  await saveOut(sessName + extOf(sessBlob), sessBlob);
   await saveOut(sessName + "_cuts.txt", T(cutList()));
 }
 

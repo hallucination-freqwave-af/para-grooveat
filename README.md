@@ -9,6 +9,13 @@
 
 **▶ [ブラウザで今すぐ開く](https://hallucination-freqwave-af.github.io/para-grooveat/para_grooveat.html)**
 
+## 見本
+
+![ガラスのダンスフロア](demo/glass-dance-floor.gif)
+
+「ガラスのダンスフロア」— dreaming majo（para grooveat で録って、編集で刻んで仕上げた一本）
+**▶ [全編を見る（mp4・2分18秒）](demo/glass-dance-floor.mp4)**
+
 ## はじめかた
 
 1. 上のリンクを Chrome で開く（手元に置きたいなら `para_grooveat.html` をダウンロードして開いてもいい）
@@ -42,10 +49,11 @@
 層は5つ読み込めて、見えるのは上下の2枚。残りは差し替え用の手札。
 
 - **VDJ として**：音を流しながら、キーボードを楽器みたいに叩く
-  - `1`〜`5`：その層へ切り替え（同じ数字をもう一回叩くと、少し先へ進む）
-  - ほかの文字キー：次の層へ
-  - 長押し：押してる間だけ切り替わり、離すと戻る
-  - `H`：自動の切り替えに戻る
+  - 自動の切り替えは裏でずっと回ってて、キーはその上に割り込む
+  - `1`〜`5`：その層へ割り込む（同じ数字をもう一回叩くと、少し先へ進む）
+  - ほかの文字キー：次の層へ割り込む
+  - 短く叩く：一瞬だけ割り込んで、自動に戻る
+  - 長押し：押してる間だけその層に留まり、離すと自動に戻る
   - MIDI パッドやコントローラーを持ってたら、キーにアサインしてみて
 - **編集で刻んで**：録ったテイクを Final Cut Pro などに持ち込んで、さらに切って、並べて、ぶつける
 
@@ -89,6 +97,13 @@ No install. It runs from a single HTML file.
 
 **▶ [Open in your browser](https://hallucination-freqwave-af.github.io/para-grooveat/para_grooveat.html)**
 
+### Example
+
+![Glass Dance Floor](demo/glass-dance-floor.gif)
+
+"Glass Dance Floor" (ガラスのダンスフロア) by dreaming majo — recorded with para grooveat, then cut and finished in an editor.
+**▶ [Watch the full piece (mp4, 2:18)](demo/glass-dance-floor.mp4)**
+
 ### Getting started
 
 1. Open the link above in Chrome (or download `para_grooveat.html` and open it locally)
@@ -122,10 +137,11 @@ Drop a batch of photos at once and they go into one layer as a bundle.
 You can load five layers; two are visible, top and bottom. The rest are cards in your hand, ready to swap in.
 
 - **As a VDJ**: play music and hit the keyboard like an instrument
-  - `1`–`5`: switch to that layer (hit the same number again to jump a little ahead)
-  - Any other letter key: next layer
-  - Hold: switches only while held, returns on release
-  - `H`: back to automatic switching
+  - Automatic switching keeps running underneath; the keys cut in on top of it
+  - `1`–`5`: cut in to that layer (hit the same number again to jump a little ahead)
+  - Any other letter key: cut in to the next layer
+  - Tap: cuts in for a moment, then back to automatic
+  - Hold: stays on that layer while held, back to automatic on release
   - Got a MIDI pad or controller? Try mapping it to the keys
 - **In an editor**: bring your takes into Final Cut Pro or similar, then cut, arrange, and smash them together
 
