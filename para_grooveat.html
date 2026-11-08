@@ -1260,7 +1260,40 @@ function fmt(t){
 ["dragleave","drop"].forEach(function(ev){
   stage.addEventListener(ev, function(e){ e.preventDefault(); stage.classList.remove("drag"); });
 });
+// フォルダを投げる：画像が直接入っているフォルダごとに一つの層になる（中のフォルダも辿る）
+function readDirAll(rd){ return new Promise(function(ok){ var all=[]; (function more(){ rd.readEntries(function(es){ if(!es.length) return ok(all); all=all.concat(es); more(); }, function(){ ok(all); }); })(); }); }
+function entryFile(en){ return new Promise(function(ok){ en.file(ok, function(){ ok(null); }); }); }
+function walkDir(dir, groups){
+  return readDirAll(dir.createReader()).then(function(es){
+    var fs = es.filter(function(x){ return x.isFile; }), ds = es.filter(function(x){ return x.isDirectory; });
+    ds.sort(function(a,b){ return a.name.localeCompare(b.name, "ja", { numeric:true }); });
+    return Promise.all(fs.map(entryFile)).then(function(files){
+      var pics = files.filter(function(f){ return f && isPic(f); });
+      if(pics.length) groups.push({ name: dir.name, pics: pics });
+      return ds.reduce(function(pr, d){ return pr.then(function(){ return walkDir(d, groups); }); }, Promise.resolve());
+    });
+  });
+}
+function loadFolders(dirs){
+  var groups = [];
+  dirs.reduce(function(pr, d){ return pr.then(function(){ return walkDir(d, groups); }); }, Promise.resolve()).then(function(){
+    groups.forEach(function(g){
+      var j = firstFree(); if(j === null) return;
+      loadPhotos(g.pics, j);
+      if(slots[j]){ slots[j].name = g.name + " " + g.pics.length + "枚"; }
+    });
+    renderSlots();
+  });
+}
 stage.addEventListener("drop", function(e){
+  var dirs = [];
+  if(e.dataTransfer && e.dataTransfer.items){
+    Array.prototype.forEach.call(e.dataTransfer.items, function(it){
+      var en = it.webkitGetAsEntry && it.webkitGetAsEntry();
+      if(en && en.isDirectory) dirs.push(en);
+    });
+  }
+  if(dirs.length) loadFolders(dirs);
   var files = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || [])
               .filter(function(f){ return isVid(f) || isPic(f); });
   var pics = files.filter(isPic);
